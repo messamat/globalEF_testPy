@@ -41,10 +41,27 @@ def zonalstats_indiv(zonelist, valuelist, statistics, rastemplate = None, IDcol 
             print('Zone: {0}, Layer: {1}'.format(in_zone, in_value))
             if rastemplate is not None:
                 arcpy.env.extent = arcpy.env.snapRaster = rastemplate
-            outab = ZonalStatisticsAsTable(in_zone_data=in_zone, zone_field='Value',
+
+            if not statistics == 'RATIO':
+                outab = arcpy.da.TableToNumPyArray(
+                    ZonalStatisticsAsTable(in_zone_data=in_zone, zone_field='Value',
                                            in_value_raster=in_value, out_table= os.path.join(gefisstats_gdb, 'temp'),
-                                           ignore_nodata= 'DATA', statistics_type=statistics)
-            statsdict[os.path.split(in_zone)[1]].append(arcpy.da.TableToNumPyArray(outab, statistics)[0][0])
+                                           ignore_nodata= 'DATA', statistics_type=statistics),
+                    statistics)
+            else:
+                outab = arcpy.da.TableToNumPyArray(
+                    ZonalStatisticsAsTable(in_zone_data=in_zone, zone_field='Value',
+                                           in_value_raster=in_value, out_table= os.path.join(gefisstats_gdb, 'temp'),
+                                           ignore_nodata= 'DATA', statistics_type='SUM'),
+                    ['COUNT', 'SUM'])
+
+            if outab.shape[0] > 0:
+                if not statistics == 'RATIO':
+                    statsdict[os.path.split(in_zone)[1]].append(outab[0][0])
+                else:
+                    statsdict[os.path.split(in_zone)[1]].append(outab[0][1]/float(outab[0][0]))
+            else:
+                statsdict[os.path.split(in_zone)[1]].append(np.nan)
 
     out_pd = pd.DataFrame.from_dict(statsdict, orient='index').reset_index()
     out_pd.columns = [IDcol]+[rasname(r) for r in valuelist]
@@ -53,13 +70,23 @@ def zonalstats_indiv(zonelist, valuelist, statistics, rastemplate = None, IDcol 
 
 sumdiv_pd = zonalstats_indiv(zonelist = wslist, valuelist = sumdivras_list, statistics = 'SUM',
                              rastemplate = px_grid, IDcol = 'no')
+sumdiv_pd.iloc[:,1:] = sumdiv_pd.iloc[:,1:].div(576.0)
 
 sum_pd = zonalstats_indiv(zonelist = wslist, valuelist = getfilelist(gefis15s_gdb, 'EMCarea.*'), statistics = 'SUM',
                           rastemplate = px_grid, IDcol = 'no')
 mean_pd = zonalstats_indiv(zonelist = wslist, valuelist = [os.path.join(gefis15s_gdb, 'EMC_10Variable_2')],
-                           statistics = 'SUM',
+                           statistics = 'MEAN',
                            rastemplate = px_grid, IDcol = 'no')
 
+#Assess coverage of layers by basin
+ratio_pd = zonalstats_indiv(zonelist = wslist, valuelist = getfilelist(gefis15s_gdb, '.*_boolean$'),
+                              statistics = 'RATIO', rastemplate = px_grid, IDcol = 'no')
 
+#Join all stats
+allstats_pd = pd.merge(
+    sumdiv_pd, sum_pd.reindex(columns=sorted(sum_pd.columns)), on='no').merge(
+    mean_pd, on= 'no').merge(
+    ratio_pd, on='no')
 
-
+#Write out to csv
+allstats_pd.to_csv(os.path.join(resdir, 'efsites_gefisstats.csv'))

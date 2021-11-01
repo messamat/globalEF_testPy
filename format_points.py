@@ -3,12 +3,15 @@ from GEFIS_setup import *
 #Input data
 csdat = os.path.join(datdir, 'Formatted_data_20211018') #Data folder from Chandima Subasinghe (CS)
 EFpoints_cs = os.path.join(csdat, "Combine_shiftedpoints.shp")
+EFpoints_1028freeze = os.path.join(resdir, 'Master_20211031_parzered_notIWMI.csv')
+
 hydroriv = os.path.join(datdir, 'HydroRIVERS_v10.gdb', 'HydroRIVERS_v10') #Download from https://www.hydrosheds.org/page/hydrorivers
 riveratlas = os.path.join(datdir, 'RiverATLAS_v10.gdb', 'RiverATLAS_v10')
 DA_grid = os.path.join(datdir, 'upstream_area_skm_15s.gdb', 'up_area_skm_15s') #HydroSHEDS upstream area grid
 MAF_nat_grid = os.path.join(datdir, 'discharge_wg22_1971_2000.gdb', 'dis_nat_wg22_ls_year') #WaterGAP naturalized mean annual discharge grid downscaled to 15s
 MAF_ant_grid = os.path.join(datdir, 'discharge_wg22_1971_2000.gdb', 'dis_ant_wg22_ls_year') #WaterGAP naturalized mean annual discharge grid downscaled to 15s
 monthlyF_net = os.path.join(datdir, 'HS_discharge_monthly.gdb', 'Hydrosheds_discharge_monthly') #WaterGAP natural mean monthly discharge associated with HydroRIVERS
+EMC_GEFIS = os.path.join(resdir, 'GEFIS_15s.gdb', 'EMC_10Variable_2')
 
 #Outputs
 process_gdb = os.path.join(resdir, 'processing_outputs.gdb')
@@ -18,7 +21,9 @@ EFpoints_joinedit = os.path.join(process_gdb, 'EFpoints_joinedit')
 EFpoints_clean = os.path.join(process_gdb, 'EFpoints_clean')
 EFpoints_cleanjoin = os.path.join(process_gdb, 'EFpoints_cleanjoin')
 
-#---------------------------------- ANALYSIS ---------------------------------------------------------------------------
+riveratlas_csv = os.path.join(resdir, 'RiverATLAS_v10tab.csv')
+
+#---------------------------------- FORMATTING OF SITES FROM CS / FIRST BATCH --------------------------------------------------
 #Copy CS points
 if not arcpy.Exists(EFpoints_cscopy):
     arcpy.CopyFeatures_management(EFpoints_cs, EFpoints_cscopy)
@@ -105,6 +110,62 @@ with arcpy.da.UpdateCursor(EFpoints_joinedit, ['no', 'Point_shift_mathis', 'Comm
             row[1] = 0
         cursor.updateRow(row)
 
+#---------------------------------- FORMATTING OF SITES FROM OCT 28th 2021 DATABASE FREEZE -------------------------------
+#Create points for those with valid
+
+
+#Join EF points to nearest river reach in RiverAtlas
+if not arcpy.Exists(EFpoints_joinedit):
+    print('Join EF points to nearest river reach in RiverAtlas')
+    arcpy.SpatialJoin_analysis(EFpoints_cscopy, hydroriv, EFpoints_joinedit,
+                               join_operation='JOIN_ONE_TO_ONE', join_type="KEEP_COMMON",
+                               match_option='CLOSEST_GEODESIC', search_radius=0.0005,
+                               distance_field_name='EFpoint_hydroriv_distance')
+
+    arcpy.AddField_management(EFpoints_joinedit, field_name='DApercdiff', field_type='FLOAT')
+    with arcpy.da.UpdateCursor(EFpoints_joinedit, ['Upstream_C', 'UPLAND_SKM', 'DApercdiff']) as cursor:
+        for row in cursor:
+            if re.match('^[0-9]+$', string = row[0]):
+                if int(row[0]) > 0L:
+                    row[2] = (float(row[1]) - float(row[0]))/float(row[0])
+            cursor.updateRow(row)
+
+    arcpy.AddField_management(EFpoints_joinedit, field_name='totalAF', field_type='FLOAT')
+    arcpy.AddField_management(EFpoints_joinedit, field_name='MAFpercdiff', field_type='FLOAT')
+    with arcpy.da.UpdateCursor(EFpoints_joinedit, ['Mean_Annua', 'DIS_AV_CMS', 'MAFpercdiff', 'totalAF']) as cursor:
+        for row in cursor:
+            if re.match('^[0-9]+\.*[0-9]*', string = row[0]):
+                if float(row[0]) > 0:
+                    row[2] = (31.557600*float(row[1]) - float(row[0]))/float(row[0])
+                    row[3] = (31.557600 * float(row[1]))
+            cursor.updateRow(row)
+
+#Manual editing
+#no, what is done (delete: -1, moved: 1), comment, OBJECTID
+editdict = {
+    0: [-1, 'artefact without data. It seems to correspond to Macalister/Below Lake Glenmaggie though'],
+}
+
+arcpy.AddField_management(EFpoints_joinedit, 'Point_shift_mathis', 'SHORT')
+arcpy.AddField_management(EFpoints_joinedit, 'Comment_mathis', 'TEXT')
+
+with arcpy.da.UpdateCursor(EFpoints_joinedit, ['no', 'Point_shift_mathis', 'Comment_mathis', 'OBJECTID']) as cursor:
+    for row in cursor:
+        if row[0] in editdict:
+            if len(editdict[row[0]]) == 2:
+                row[1] = editdict[row[0]][0] #Point_shift_mathis = first entry in dictionary
+                row[2] = editdict[row[0]][1] #Comment_mathis = second entry in dictionary
+            else:
+                if row[3] in [25, 26]:
+                    row[1] = -1
+                    row[2] = 'Wrongly placed'
+        else:
+            row[1] = 0
+        cursor.updateRow(row)
+
+
+#---------------------------------- MERGE AND FORMAT ALL SITES -----------------------------------------------------------
+
 #Delete sites, clean fields
 if not arcpy.Exists(EFpoints_clean):
     arcpy.CopyFeatures_management(EFpoints_joinedit, EFpoints_clean)
@@ -121,7 +182,7 @@ if not arcpy.Exists(EFpoints_clean):
         if f1.name not in [f2.name for f2 in arcpy.ListFields(EFpoints_cscopy)]+['Point_shift_mathis', 'Comment_mathis']:
             arcpy.DeleteField_management(EFpoints_clean, f1.name)
 
-#Snap to river networ
+#Snap to river network
 snapenv = [[hydroriv, 'EDGE', '1000 meters']]
 arcpy.Snap_edit(EFpoints_clean, snapenv)
 
@@ -133,7 +194,8 @@ arcpy.SpatialJoin_analysis(EFpoints_clean, riveratlas, EFpoints_cleanjoin, join_
                            match_option='CLOSEST_GEODESIC', search_radius=0.0005,
                            distance_field_name='station_river_distance')
 
-#Extract GLAD sea mask value to check for tidal reversal as cause of intermittency
+
+#Extract HydroSHEDS and WaterGAP layers
 ExtractMultiValuesToPoints(in_point_features=EFpoints_cleanjoin, in_rasters=[DA_grid, MAF_nat_grid, MAF_ant_grid],
                            bilinear_interpolate_values='NONE')
 
@@ -157,6 +219,31 @@ with arcpy.da.UpdateCursor(EFpoints_cleanjoin, ['HYRIV_ID']+mdis_fnames) as curs
             row = tuple([row[0]]+mdisdict[row[0]])
             cursor.updateRow(row)
 
+#Extract Biodiversity Threat Index at site point
+EMC_GEFISatsite = arcpy.da.TableToNumPyArray(
+    Sample(in_rasters=EMC_GEFIS, in_location_data=EFpoints_cleanjoin,
+                    out_table=os.path.join(process_gdb, 'EMC_GEFIS_efsites'),
+                    resampling_type= 'NEAREST', unique_id_field = 'no'),
+    ['EFpoints_cleanjoin', 'EMC_10Variable_2_Band_1']
+)
+
+EMC_GEFISatsite_dict = {i:j for i,j in EMC_GEFISatsite}
+
+arcpy.AddField_management(EFpoints_cleanjoin, 'ecpresent_gefis_atsite', 'float')
+with arcpy.da.UpdateCursor(EFpoints_cleanjoin, ['no', 'ecpresent_gefis_atsite']) as cursor:
+    for row in cursor:
+        if row[0] in EMC_GEFISatsite:
+            row[1] = EMC_GEFISatsite_dict[row[0]]
+            cursor.updateRow(row)
+
 #Add coordinates
 arcpy.AddGeometryAttributes_management(EFpoints_cleanjoin, Geometry_Properties='POINT_X_Y_Z_M')
 
+#Export riveratlas attributes to csv file
+if not arcpy.Exists(riveratlas_csv):
+    print('Exporting CSV table of RiverATLAS v1.0 attributes')
+    arcpy.CopyRows_management(in_rows = riveratlas, out_table=riveratlas_csv)
+
+#Get formatted GRDC stations from global non-perennial rivers project (Messager et al. 2021) - doesn't work, did it manually
+arcpy.CopyFeatures_management(in_features = 'D://globalIRmap/results/GRDCstations_predbasic800.gpkg/GRDCstations_predbasic800',
+                              out_feature_class= os.path.join(process_gdb, 'GRDCstations_predbasic800'))
