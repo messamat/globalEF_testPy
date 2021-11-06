@@ -1,8 +1,12 @@
 from GEFIS_setup import *
 
 #Input variables
+process_gdb = os.path.join(resdir, 'processing_outputs.gdb')
+EFpoints_QAQCed_riverjoin = os.path.join(process_gdb, 'Master_20211104_QAQCed_riverjoin')
+
 gefis15s_gdb = os.path.join(resdir, 'GEFIS_15s.gdb')
 EMCperc = os.path.join(gefis15s_gdb, 'EMC_10Variable_2') #GEFIS layer of Vorosmarty human pressure index at 15 arc-sec
+EMC_GEFIS = os.path.join(resdir, 'GEFIS_15s.gdb', 'EMC_10Variable_2')
 px_grid = os.path.join(datdir, 'pixel_area_skm_15s.gdb', 'px_area_skm_15s') #HydroSHEDS pixel area grid
 wsgdb = os.path.join(resdir, 'EFsites_watersheds.gdb')
 
@@ -10,6 +14,27 @@ wsgdb = os.path.join(resdir, 'EFsites_watersheds.gdb')
 gefisstats_gdb = os.path.join(resdir, 'GEFIS_stats.gdb')
 pathcheckcreate(gefisstats_gdb)
 
+#----------------------------------------- Extract by point ------------------------------------------------------------
+#Extract Biodiversity Threat Index at site point
+oidfn = arcpy.Describe(EFpoints_QAQCed_riverjoin).OIDFieldName
+
+EMC_GEFISatsite = arcpy.da.TableToNumPyArray(
+    Sample(in_rasters=EMC_GEFIS, in_location_data=EFpoints_QAQCed_riverjoin,
+                    out_table=os.path.join(process_gdb, 'EMC_GEFIS_efsites'),
+                    resampling_type= 'NEAREST', unique_id_field = oidfn),
+    field_names=['EFpoints_20211104_cleanriverjoin','EMC_10Variable_2_Band_1']
+)
+
+EMC_GEFISatsite_dict = {i:j for i,j in EMC_GEFISatsite}
+
+arcpy.AddField_management(EFpoints_QAQCed_riverjoin, 'ecpresent_gefis_atsite', 'float')
+with arcpy.da.UpdateCursor(EFpoints_QAQCed_riverjoin, [oidfn, 'ecpresent_gefis_atsite']) as cursor:
+    for row in cursor:
+        if row[0] in EMC_GEFISatsite:
+            row[1] = EMC_GEFISatsite_dict[row[0]]
+            cursor.updateRow(row)
+
+#----------------------------------------- Extract by watershed --------------------------------------------------------
 #Layers to get percentages of
 EMCinter = [0, .25, .5, .65, 1]
 EMCs = ['A', 'B', 'C', 'D']
