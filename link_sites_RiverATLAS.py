@@ -2,7 +2,7 @@ from GEFIS_setup import *
 
 #Intputs
 process_gdb = os.path.join(resdir, 'processing_outputs.gdb')
-EFpoints_QAQCed_p = os.path.join(process_gdb, 'Master_20211104_QAQCed')
+EFpoints_QAQCed = os.path.join(resdir, 'Master_20211104_QAQCed.csv')
 riveratlas = os.path.join(datdir, 'RiverATLAS_v10.gdb', 'RiverATLAS_v10')
 
 DA_grid = os.path.join(datdir, 'upstream_area_skm_15s.gdb', 'up_area_skm_15s') #HydroSHEDS upstream area grid
@@ -12,9 +12,19 @@ MAF_ant_grid = os.path.join(datdir, 'discharge_wg22_1971_2000.gdb', 'dis_ant_wg2
 
 #Outputs
 riveratlas_csv = os.path.join(resdir, 'RiverATLAS_v10tab.csv')
+EFpoints_QAQCed_p = os.path.join(process_gdb, 'Master_20211104_QAQCed')
 EFpoints_QAQCed_riverjoin = os.path.join(process_gdb, 'Master_20211104_QAQCed_riverjoin')
 
 #------------------------------- Analysis ------------------------------------------------------------------------------
+#Create points for those with valid coordinates (see merge_dbversions.r)
+arcpy.MakeXYEventLayer_management(table=EFpoints_QAQCed,
+                                  in_x_field='POINT_X',
+                                  in_y_field='POINT_Y',
+                                  out_layer='efp_QAQCed',
+                                  spatial_reference=4326,
+                                  in_z_field=None)
+arcpy.CopyFeatures_management('efp_QAQCed', EFpoints_QAQCed_p)
+
 #Join to RiverATLAS
 arcpy.SpatialJoin_analysis(EFpoints_QAQCed_p, riveratlas, EFpoints_QAQCed_riverjoin, join_operation='JOIN_ONE_TO_ONE',
                            join_type="KEEP_COMMON",
