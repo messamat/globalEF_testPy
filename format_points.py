@@ -16,9 +16,9 @@ hydroriv = os.path.join(datdir, 'HydroRIVERS_v10.gdb', 'HydroRIVERS_v10') #Downl
 process_gdb = os.path.join(resdir, 'processing_outputs.gdb')
 pathcheckcreate(process_gdb)
 EFpoints1_cscopy = os.path.join(process_gdb, 'Combine_shiftedpoints_copy')
-EFpoints1_joinedit = os.path.join(process_gdb, 'EFpoints_joinedit')
-EFpoints1_clean = os.path.join(process_gdb, 'EFpoints_clean')
-EFpoints1_cleanjoin = os.path.join(process_gdb, 'EFpoints_cleanjoin')
+EFpoints1_joinedit = os.path.join(process_gdb, 'EFpoints1_joinedit')
+EFpoints1_clean = os.path.join(process_gdb, 'EFpoints1_clean')
+EFpoints1_cleanjoin = os.path.join(process_gdb, 'EFpoints1_cleanjoin')
 
 EFpoints2_cscopy = os.path.join(process_gdb, 'EFpoints2_merge')
 EFpoints2_joinedit = os.path.join(process_gdb, 'EFpoints2_joinedit')

@@ -3,9 +3,9 @@ from GEFIS_setup import *
 #Inputs
 process_gdb = os.path.join(resdir, 'processing_outputs.gdb')
 flowdir = os.path.join(datdir, 'flow_dir_15s_global.gdb', 'flow_dir_15s')
+EFpoints_QAQCed_p = os.path.join(process_gdb, 'Master_20211104_QAQCed')
 
 #Outputs
-EFpoints_QAQCed_p = os.path.join(process_gdb, 'Master_20211104_QAQCed')
 wsgdb = os.path.join(resdir, 'EFsites_watersheds.gdb')
 pathcheckcreate(wsgdb)
 
