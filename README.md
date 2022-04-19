@@ -1,4 +1,4 @@
-##Python code for: "Comparing global e-flow estimation methods to local e-flow assessments"
+## Python code for: "Comparing global e-flow estimation methods to local e-flow assessments"
 
 **Prerequisites**: All GIS analyses in this study require an ESRI ArcGIS license including the Spatial Analyst extension, 
 which itself requires a Windows OS. We used the Python Arcpy module associated with ArcGIS 10.7 in Python 2.7 with 
@@ -12,6 +12,10 @@ Prior to the spatial formatting, execute src/GEFIS_testR/preQAQC_format.R
 Then, to reproduce the spatial formatting of the data, the scripts need to be run in the following order:
 1. downscale_GEFIS.py
 2. format_points.py
+
+Then execute the following code in R: src/GEFIS_testR/postQAQC_merge_dbversions.R
+
+And continue with the following workflow:
 3. link_sites_GEFIS.py
 4. link_sites_GRDC.py
 5. link_sites_RiverATLAS.py

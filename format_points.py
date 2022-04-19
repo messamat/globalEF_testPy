@@ -1,6 +1,8 @@
+import arcpy
+
 from GEFIS_setup import *
 
-#Input data
+#Input data - 2021 Master database
 csdat_1 = os.path.join(datdir, 'Formatted_data_Chandima_20211018') #Data folder from Chandima Subasinghe (CS)
 EFpoints_cs1 = os.path.join(csdat_1, "Combine_shiftedpoints.shp")
 
@@ -10,9 +12,17 @@ EFpoints_cs2 = [os.path.join(csdat_2, cspath) for cspath in
 
 EFpoints_1028freeze = os.path.join(resdir, 'Master_20211104_parzered_notIWMI.csv')
 
-hydroriv = os.path.join(datdir, 'HydroRIVERS_v10.gdb', 'HydroRIVERS_v10') #Download from https://www.hydrosheds.org/page/hydrorivers
+#Input data - Mexico
+EFtab_Mexico = os.path.join(resdir, 'mexico_refdata_preformatted.csv')
+basins_Mexico = os.path.join(datdir, 'GEFIS_test_data', 'Data by Country', 'Mexico',
+                             'Cuencas_hidrolOgicas_que_cuentan_con_reserva', 'Cuencas_hidrologicas_Reservas_Act757.shp')
 
-#Outputs
+#Input data - General
+wgs84_epsg = 4326
+hydroriv = os.path.join(datdir, 'HydroRIVERS_v10.gdb', 'HydroRIVERS_v10') #Download from https://www.hydrosheds.org/page/hydrorivers
+up_area = os.path.join(datdir, 'upstream_area_skm_15s.gdb', 'up_area_skm_15s')
+
+#Outputs - 2021 Master database
 process_gdb = os.path.join(resdir, 'processing_outputs.gdb')
 pathcheckcreate(process_gdb)
 EFpoints1_cscopy = os.path.join(process_gdb, 'Combine_shiftedpoints_copy')
@@ -28,9 +38,144 @@ EFpoints2_cleanjoin = os.path.join(process_gdb, 'EFpoints2_cleanjoin')
 EFpoints_1028notIWMI_raw = os.path.join(process_gdb, 'Master_20211104_parzered_notIWMI_raw')
 EFpoints_1028notIWMI_joinedit = os.path.join(process_gdb, 'Master_20211104_parzered_notIWMI_joinedit')
 
+#Outputs - Mexico
+EFbasins_Mexico = os.path.join(process_gdb, 'EFbasins_Mexico')
+EFbasins_Mexico_wgs84 = os.path.join(process_gdb, 'EFbasins_Mexico_wgs84')
+EFbasins_ptraw_Mexico = os.path.join(process_gdb, 'EFbasins_ptraw_Mexico')
+EFbasins_ptraw_attri_Mexico = os.path.join(process_gdb, 'EFbasins_ptraw_attri_Mexico')
+EFbasins_ptjointedit_Mexico = os.path.join(process_gdb, 'EFbasins_ptjoinedit_attri_Mexico')
+
+#Outputs - General
 EFpoints_1028_merge = os.path.join(process_gdb, 'EFpoints_20211104_merge')
 EFpoints_1028_clean = os.path.join(process_gdb, 'EFpoints_20211104_clean')
-EFpoints_1028_cleanriverjoin = os.path.join(process_gdb, 'EFpoints_20211104_cleanriverjoin')
+
+#---------------------------------- FORMAT MEXICAN SITES ---------------------------------------------------------------
+#Link EF tab from Salinas-Rodriguez et al. 2021 to basin shapefile
+if not arcpy.Exists(EFbasins_Mexico):
+    arcpy.MakeFeatureLayer_management(basins_Mexico, 'basins_Mexico_layer')
+    arcpy.AddJoin_management('basins_Mexico_layer', in_field = 'id_cuenca',
+                            join_table = EFtab_Mexico, join_field = 'E_flow_Location_Name_No_', join_type='KEEP_COMMON')
+    arcpy.CopyFeatures_management('basins_Mexico_layer', EFbasins_Mexico)
+    arcpy.Project_management(in_dataset=EFbasins_Mexico,
+                             out_dataset=EFbasins_Mexico_wgs84, out_coor_system=4326)
+
+#Compute basin areas
+arcpy.AddGeometryAttributes_management(EFbasins_Mexico_wgs84,
+                                       Geometry_Properties='AREA_GEODESIC',
+                                       Area_Unit='SQUARE_KILOMETERS')
+
+#Convert EF basins to pour points to link with RiverATLAS (Mexican basins do not overlaps with HydroBASINS)
+basin_maxarea = ZonalStatistics(in_zone_data=EFbasins_Mexico_wgs84,
+                                zone_field='E_flow_Location_Name_No_',
+                                in_value_raster=up_area,
+                                statistics_type='MAXIMUM',
+                                ignore_nodata='DATA')
+basin_prpt1 = Con(up_area==basin_maxarea, basin_maxarea)
+arcpy.RasterToPoint_conversion(basin_prpt1, EFbasins_ptraw_Mexico, raster_field='Value')
+arcpy.SpatialJoin_analysis(EFbasins_ptraw_Mexico, EFbasins_Mexico_wgs84, EFbasins_ptraw_attri_Mexico,
+                           join_operation='JOIN_ONE_TO_ONE',
+                           join_type='KEEP_COMMON',
+                           match_option='WITHIN')
+
+#Join EF points to nearest river reach in RiverAtlas
+if not arcpy.Exists(EFbasins_ptjointedit_Mexico):
+    print('Join Mexican EF points to nearest river reach in RiverAtlas')
+    arcpy.SpatialJoin_analysis(EFbasins_ptraw_attri_Mexico, hydroriv, EFbasins_ptjointedit_Mexico,
+                               join_operation='JOIN_ONE_TO_ONE', join_type="KEEP_COMMON",
+                               match_option='CLOSEST_GEODESIC', search_radius=0.01,
+                               distance_field_name='EFpoint_hydroriv_distance')
+
+    arcpy.AddField_management(EFbasins_ptjointedit_Mexico, field_name='DApercdiff', field_type='FLOAT')
+    with arcpy.da.UpdateCursor(EFbasins_ptjointedit_Mexico, ['AREA_GEO', 'UPLAND_SKM', 'DApercdiff']) as cursor:
+        for row in cursor:
+            if int(row[0]) > 0L:
+                row[2] = (float(row[1]) - float(row[0]))/float(row[0])
+            cursor.updateRow(row)
+
+#Exclusions here are only for the sake of comparing with RiverATLAS
+editdict_mexico = {
+    1227: [-1, 'Mexican e-flow basin does not match hydrological network'],
+    1235: [1, 'Move to mainstem'],
+    1243: [1, 'Move to mainstem'],
+    1249: [1, 'Move to correct segment'],
+    1401: [1, 'Move to mainstem'],
+    1502: [-1, 'Coastal basin encompassing other tributaries'],
+    1505: [-1, 'Coastal basin encompassing other tributaries'],
+    1507: [-1, 'Coastal basin encompassing other tributaries'],
+    1509: [-1, 'Coastal basin encompassing other tributaries'],
+    2005: [1, 'Move to mainstem'],
+    2009: [-1, 'Coastal basin encompassing other tributaries'],
+    2014: [1, 'Move downstream to include all tributaries in Mexican e-flow basin'],
+    2015: [1, 'Move upstream to only include tributaries in Mexican e-flow basin'],
+    2020: [1, 'Move to mainstem'],
+    2025: [-1, 'Coastal basin encompassing other tributaries'],
+    2027: [-1, 'Coastal basin encompassing other tributaries'],
+    2030: [1, 'Move upstream to only include tributaries in Mexican e-flow basin'],
+    2518: [-1, 'HydroRIVER segment lies almost fully outside of Mexican e-flow basin. Coastal basin'],
+    2529: [1, 'Move to correct segment'],
+    2533: [1, 'Move upstream to only include tributaries in Mexican e-flow basin'],
+    2540: [-1, 'Coastal basin encompassing other tributaries'],
+    2541: [-1, 'Wrong river segment. Coastal basin encompassing other tributaries'],
+    2606: [1, 'Move to mainstem'],
+    2622: [1, 'Move upstream to only include tributaries in Mexican e-flow basin'],
+    2627: [-1, 'Mexican e-flow basin includes headwaters from other HydroSHEDS basins'],
+    2630: [-1, 'Mexican e-flow basin includes headwaters from other HydroSHEDS basins'],
+    2634: [-1, 'Mexican e-flow basin is missing headwaters'],
+    2644: [-1, 'Mexican e-flow basin includes headwaters from various other HydroSHEDS basins'],
+    2655: [-1, 'Mexican e-flow basin does not match hydrological network'],
+    2657: [1, 'Move to mainstem'],
+    2661: [-1, 'Mexican e-flow basin includes headwaters from other HydroSHEDS basins'],
+    2663: [-1, 'Coastal basin encompassing other tributaries'],
+    2803: [1, 'Move downstream to include large tributary in Mexican e-flow basin'],
+    2805: [1, 'Move upstream to only include tributaries in Mexican e-flow basin'],
+    2807: [1, 'Move upstream to only include tributaries in Mexican e-flow basin'],
+    2808: [-1, 'Mexican e-flow basin includes headwaters from other HydroSHEDS basins'],
+    2809: [1, 'Move to correct segment'],
+    2810: [1, 'Move upstream to only include tributaries in Mexican e-flow basin'],
+    2811: [1, 'Move upstream to only include tributaries in Mexican e-flow basin'],
+    2812: [-1, 'Coastal basin encompassing other tributaries'],
+    2814: [1, 'Move to correct segment'],
+    2818: [-1, 'Coastal basin encompassing other tributaries'],
+    2914: [1, 'Move to mainstem'],
+    2915: [-1, 'Coastal basin encompassing other tributaries'],
+    3008: [1, 'Move to mainstem'],
+    3010: [-1, 'Mexican e-flow basin includes headwaters from other HydroSHEDS basins'],
+    3031: [-1, 'Mexican e-flow basin includes tributaries from other HydroSHEDS basins'],
+    3033: [-1, 'Mexican e-flow basin does not match hydrological network'],
+    3034: [-1, 'Mexican e-flow basin does not match hydrological network'],
+    3036: [-1, 'Mexican e-flow basin does not match hydrological network'],
+    3037: [1, 'Move downstream to include tributary in Mexican e-flow basin'],
+    3041: [1, 'Move to correct segment'],
+    3044: [1, 'Move upstream to only include tributaries in Mexican e-flow basin'],
+    3047: [-1, 'Mexican e-flow basin does not match hydrological network'],
+    3048: [-1, 'Mexican e-flow basin does not match hydrological network'],
+    3049: [1, 'Move to correct segment'],
+    3052: [1, 'Move to correct segment'],
+    3057: [1, 'Move to mainstem'],
+    3061: [-1, 'Mexican e-flow basin includes tributaries from other HydroSHEDS basins'],
+    3062: [1, 'Move downstream to include tributary in Mexican e-flow basin'],
+    3065: [-1, 'Mexican e-flow basin includes tributaries from other HydroSHEDS basins'],
+    3068: [1, 'Move upstream to tributary'],
+    3069: [1, 'Move upstream to tributary'],
+    3075: [-1, 'Mexican e-flow basin includes tributaries from other HydroSHEDS basins'],
+    3076: [-1, 'Mexican e-flow basin includes tributaries from other HydroSHEDS basins'],
+    3078: [-1, 'Coastal basin encompassing other tributaries'],
+    3080: [-1, 'Coastal basin encompassing other tributaries'],
+    3081: [-1, 'Wrongly placed. Coastal basin encompassing other tributaries']
+}
+
+############## TO CONTINUE ##################
+arcpy.AddField_management(EFbasins_ptjointedit_Mexico, 'Point_shift_mathis', 'SHORT')
+arcpy.AddField_management(EFbasins_ptjointedit_Mexico, 'Comment_mathis', 'TEXT')
+
+with arcpy.da.UpdateCursor(EFpoints1_joinedit, ['id_cuenca', 'Point_shift_mathis', 'Comment_mathis', 'OBJECTID']) as cursor:
+    for row in cursor:
+        if row[0] in editdict_mexico:
+            row[1] = editdict_mexico[row[0]][0] #Point_shift_mathis = first entry in dictionary
+            row[2] = editdict_mexico[row[0]][1] #Comment_mathis = second entry in dictionary
+        else:
+            row[1] = 0
+        cursor.updateRow(row)
 
 #---------------------------------- FORMATTING OF SITES FROM CS / FIRST BATCH --------------------------------------------------
 #Copy CS points
