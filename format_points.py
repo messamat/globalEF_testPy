@@ -1,4 +1,5 @@
 import arcpy
+from datetime import date
 
 from GEFIS_setup import *
 
@@ -16,6 +17,14 @@ EFpoints_1028freeze = os.path.join(resdir, 'Master_20211104_parzered_notIWMI.csv
 EFtab_Mexico = os.path.join(resdir, 'mexico_refdata_preformatted.csv')
 basins_Mexico = os.path.join(datdir, 'GEFIS_test_data', 'Data by Country', 'Mexico',
                              'Cuencas_hidrolOgicas_que_cuentan_con_reserva', 'Cuencas_hidrologicas_Reservas_Act757.shp')
+
+#Input data - Victoria
+EFgdb_Victoria = os.path.join(resdir, 'victoria_preprocessing.gdb')
+EFpoints_Victoria_raw = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_reportsraw')
+
+#Input data - Rhone
+EFgdb_Rhone = os.path.join(resdir, 'france_preprocessing.gdb')
+EFpoints_Rhone_raw = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_reportsraw')
 
 #Input data - General
 wgs84_epsg = 4326
@@ -45,9 +54,227 @@ EFbasins_ptraw_Mexico = os.path.join(process_gdb, 'EFbasins_ptraw_Mexico')
 EFbasins_ptraw_attri_Mexico = os.path.join(process_gdb, 'EFbasins_ptraw_attri_Mexico')
 EFbasins_ptjointedit_Mexico = os.path.join(process_gdb, 'EFbasins_ptjoinedit_attri_Mexico')
 
+#Outputs - Victoria
+EFpoints_Victoria_snap = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_snap')
+EFpoints_Victoria_edit = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_edit')
+EFpoints_Victoria_clean = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_clean')
+EFpoints_Victoria_cleanjoin = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_cleanjoin')
+
+#Outputs - Rhone
+EFpoints_Rhone_snap = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_snap')
+EFpoints_Rhone_edit = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_edit')
+EFpoints_Rhone_clean = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_clean')
+EFpoints_Rhone_cleanjoin = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_cleanjoin')
+
 #Outputs - General
 EFpoints_1028_merge = os.path.join(process_gdb, 'EFpoints_20211104_merge')
 EFpoints_1028_clean = os.path.join(process_gdb, 'EFpoints_20211104_clean')
+
+#---------------------------------- FORMATTING RHONE SITES  --------------------------------------------------------
+#Add raw coordinates to sites
+arcpy.AddGeometryAttributes_management(EFpoints_Rhone_raw, Geometry_Properties='POINT_X_Y_Z_M')
+arcpy.AlterField_management(EFpoints_Rhone_raw, field='POINT_X', new_field_name='Longitude_original', new_field_alias='Longitude_original')
+arcpy.AlterField_management(EFpoints_Rhone_raw, field='POINT_Y', new_field_name='Latitude_original', new_field_alias='Latitude_original')
+
+#Snap to river network
+snapenv = [[hydroriv, 'EDGE', '1000 meters']]
+arcpy.CopyFeatures_management(EFpoints_Rhone_raw, EFpoints_Rhone_snap)
+arcpy.Snap_edit(EFpoints_Rhone_snap, snapenv)
+
+#Record of edits (UID: action code, comment)
+arcpy.CopyFeatures_management(EFpoints_Rhone_snap, EFpoints_Rhone_edit)
+
+editdict_Rhone = {
+    6: [1, 'Move to correct watercourse, Le Breuchin'],
+    20: [1, 'Move to correct tributary, le Syriez'],
+    21: [1, 'Move to correct watercourse, la Sasse'],
+    28: [1, "Move to correct watercourse, l'Auzon"],
+    32: [1, "Move to correct watercourse, le Nant"],
+    40: [-1, "Not represented in HydroRIVERS"],
+    42: [1, "Move to correct watercourse, l'Ain"],
+    53: [1, "Move to correct watercourse, le Lergue"],
+    62: [1, "Move to correct watercourse, l'Orb"],
+    68: [1, "Move to correct tributary, la Mare"],
+    70: [1, "Move to correct tributary, le Jaur"],
+    85: [1, "Move to correct watercourse, l'Orbieu"],
+    95: [1, "Move to correct watercourse, le Rival"],
+    96: [0, "Coordinates provided by study are on la Raille not le Rival"],
+    97: [1, "Move upstream of confluence because drainage not well represented in HydroRIVERS"],
+    98: [-1, "Drainage area not well represented in HydroRIVERS"],
+    100: [-1, "Drainage area not well represented in HydroRIVERS"],
+    103: [1, "Move to correct watercourse, le Calavon"],
+    114: [1, "Move to correct tributary, l'Encreme"],
+    117: [1, "Move to correct tributary, l'Imergue"],
+    132: [1, "Move to correct tributary, la Gervanne"],
+    143: [0, "Corrected Cours_deau field to Oule"],
+    144: [0, "Corrected Cours_deau field to Oule"],
+    145: [0, "Corrected Cours_deau field to Ennuye"],
+    150: [1, "Move to correct watercourse, le Doubs"],
+    189: [1, "Move site before confluence with l'Argental"],
+    203: [1, "Move to correct tributary, la Ganière"],
+    206: [1, "Move to correct tributary, la Tave"],
+    218: [1, "Move to correct watercourse, la Têt"],
+    220: [1, "Move to correct tributary, la Cabrils"],
+    225: [1, "Move to correct tributary, le Caillan"],
+    228: [1, "Move to correct tributary, l'Hyère"],
+    229: [1, "Move to correct tributary, l'Albanne"],
+    231: [-1, "Not represented in HydroRIVERS"],
+    237: [1, "Move to correct tributary, la Meunaz"],
+    240: [1, "Move to correct tributary, le Drumettaz"],
+    297: [-1, "Not represented in HydroRIVERS"],
+    299: [-1, "Move to correct tributary, le Dorlay"],
+    301: [1, "Move to correct tributary, la Durèze"],
+    315: [1, "Move downstream of confluence"],
+    335: [1, "Move to correct tributary, la Véga"],
+    349: [1, "Move to correct tributary, le Vezy"],
+    352: [1, "Move to correct tributary, le Nant"],
+    354: [-1, "Not represented in HydroRIVERS"],
+    355: [1, "Move to correct watercourse, le Gardon d'Alès"],
+    358: [1, "Move to correct tributary, l'Alzon"],
+    367: [1, "Move to correct tributary, le Salindrenque"],
+    392: [-1, "Not represented in HydroRIVERS"],
+    393: [-1, "Not represented in HydroRIVERS"],
+    404: [-1, "Drainage area not well represented in HydroRIVERS"],
+    409: [-1, "Drainage area not well represented in HydroRIVERS"],
+    410: [-1, "Drainage area not well represented in HydroRIVERS"],
+    412: [-1, "Drainage area not well represented in HydroRIVERS"],
+    413: [-1, "Drainage area not well represented in HydroRIVERS"],
+    426: [1, "Move to most upstream and only section of the stream, 900 m away"],
+    432: [1, "Move upstream of confluence with Ruisseau de Villefranche"],
+    451: [1, "Move to correct tributary, la Payre"],
+    452: [1, "Move upstream of confluence"],
+    457: [1, "Move to correct tributary, le Rieutord"],
+    464: [-1, "Drainage area not well represented in HydroRIVERS"],
+    467: [-1, "Drainage area not well represented in HydroRIVERS"],
+    468: [-1, "Drainage area not well represented in HydroRIVERS"],
+    472: [1, "Move to correct tributary, la Vêbre"],
+    474: [-1, "Drainage area not well represented in HydroRIVERS"],
+    486: [1, "Move to correct tributary, le Rhome"],
+    487: [1, "Move to correct tributary, le Verboté"],
+    490: [1, "Move to correct watercourse, la Savoureuse"],
+    493: [1, "Move to correct tributary, la Douce"],
+    495: [1, "Move to HydroRIVERS segment"],
+    497: [-1, "Not represented in HydroRIVERS"],
+    499: [-1, "Drainage area not well represented in HydroRIVERS"],
+    500: [1, "Move to correct tributary, Ruisseau de la Gorge"],
+    504: [-1, "Not represented in HydroRIVERS"]
+}
+
+arcpy.AddField_management(EFpoints_Rhone_edit, 'Point_shift_mathis', 'SHORT')
+arcpy.AddField_management(EFpoints_Rhone_edit, 'Comment_mathis', 'TEXT')
+
+with arcpy.da.UpdateCursor(EFpoints_Rhone_edit, ['UID_Mathis', 'Point_shift_mathis', 'Comment_mathis']) as cursor:
+    for row in cursor:
+        if row[0] in editdict_Rhone:
+            row[1] = editdict_Rhone[row[0]][0] #Point_shift_mathis = first entry in dictionary
+            row[2] = editdict_Rhone[row[0]][1] #Comment_mathis = second entry in dictionary
+        else:
+            row[1] = 0
+        cursor.updateRow(row)
+
+#Delete sites, clean fields
+arcpy.CopyFeatures_management(EFpoints_Rhone_edit, EFpoints_Rhone_clean)
+with arcpy.da.UpdateCursor(EFpoints_Rhone_clean, ['Point_shift_mathis']) as cursor:
+    for row in cursor:
+        if row[0] == -1:
+            cursor.deleteRow()
+
+arcpy.AddGeometryAttributes_management(EFpoints_Rhone_clean, Geometry_Properties='POINT_X_Y_Z_M')
+arcpy.AlterField_management(EFpoints_Rhone_clean, field='POINT_X',
+                            new_field_name='Longitude_snapped', new_field_alias='Longitude_snapped')
+arcpy.AlterField_management(EFpoints_Rhone_clean, field='POINT_Y',
+                            new_field_name='Latitude_snapped', new_field_alias='Latitude_snapped')
+
+arcpy.SpatialJoin_analysis(EFpoints_Rhone_clean, hydroriv, EFpoints_Rhone_cleanjoin,
+                           join_operation='JOIN_ONE_TO_ONE', join_type="KEEP_COMMON",
+                           match_option='CLOSEST_GEODESIC', search_radius=0.005,
+                           distance_field_name='EFpoint_hydroriv_distance')
+
+# arcpy.CopyRows_management(EFpoints_Rhone_clean,
+#                           os.path.join(resdir,
+#                                        'Rhone_EFpoints_clean_{}.csv'.format(date.today().strftime('%Y%m%d'))))
+
+#Downloaded stream condition index from
+"""
+Title 	Index of Stream Condition
+URL https://datashare.maps.vic.gov.au/search?md=48d03335-0ee2-5107-838a-630808cf0f09
+ANZLICID 	ANZVI0803002935
+Custodian 	Department of Environment, Land, Water & Planning
+Abstract 	Rates each section of major rivers according to a defined set of rules.
+Search Words 	inland waters
+Contact 	Point of contact resource Department of Environment, Land, Water & Planning Rwmp.wim@dse.vic.gov.au RWMP 
+Info RWMP RWMP Info Level 10 / 8 Nicholson St, East Melbourne, Vic, 3002, Australia +61 3 9637 9010,+61 3 9637 8489;
+Point of contact metadata Department of Environment, Land, Water & Planning Rwmp.wim@dse.vic.gov.au RWMP Info RWMP RWMP
+ Info Level 10 / 8 Nicholson St, East Melbourne, Vic, 3002, Australia +61 3 9637 9010,+61 3 9637 8489 """
+
+
+#---------------------------------- FORMATTING VICTORIA SITES  --------------------------------------------------------
+#Add raw coordinates to sites
+arcpy.AddGeometryAttributes_management(EFpoints_Victoria_raw, Geometry_Properties='POINT_X_Y_Z_M')
+[f.name for f in arcpy.ListFields(EFpoints_Victoria_raw)]
+arcpy.AlterField_management(EFpoints_Victoria_raw, field='POINT_X', new_field_name='Longitude_original', new_field_alias='Longitude_original')
+arcpy.AlterField_management(EFpoints_Victoria_raw, field='POINT_Y', new_field_name='Latitude_original', new_field_alias='Latitude_original')
+
+#The raw values are what's included in the Master Data Table
+arcpy.CopyRows_management(EFpoints_Victoria_raw,
+                          os.path.join(resdir,
+                                       'Victoria_EFpoints_raw_{}.csv'.format(date.today().strftime('%Y%m%d'))))
+
+#Snap to river network
+snapenv = [[hydroriv, 'EDGE', '1000 meters']]
+arcpy.CopyFeatures_management(EFpoints_Victoria_raw, EFpoints_Victoria_snap)
+arcpy.Snap_edit(EFpoints_Victoria_snap, snapenv)
+
+#Record of edits (UID: action code, comment)
+arcpy.CopyFeatures_management(EFpoints_Victoria_snap, EFpoints_Victoria_edit)
+
+editdict_victoria = {
+    3: [1, 'Move to correct tributary'],
+    47: [1, 'Move to correct tributary, Tanjil River'],
+    50: [1, 'Move to correct tributary, Traralgon River'],
+    71: [-1, 'Tributary is not represented in HydroRIVERS'],
+    73: [-1, 'Tributary is not well represented in HydroRIVERS'],
+    87: [1, 'Move to correct tributary, Tullarrop'],
+    90: [-1, 'Bifurcation/Difluence to twelve mile creek is not represented in HydroRIVERS'],
+    92: [-1, 'Bifurcation/Difluence to twelve mile creek is not represented in HydroRIVERS'],
+    112: [-1, 'Tributary is not represented in HydroRIVERS'],
+    113: [-1, 'Tributary is not represented in HydroRIVERS'],
+    120: [-1, 'Tributary is not represented in HydroRIVERS']
+}
+
+arcpy.AddField_management(EFpoints_Victoria_edit, 'Point_shift_mathis', 'SHORT')
+arcpy.AddField_management(EFpoints_Victoria_edit, 'Comment_mathis', 'TEXT')
+
+with arcpy.da.UpdateCursor(EFpoints_Victoria_edit, ['UID_Mathis', 'Point_shift_mathis', 'Comment_mathis']) as cursor:
+    for row in cursor:
+        if row[0] in editdict_victoria:
+            row[1] = editdict_victoria[row[0]][0] #Point_shift_mathis = first entry in dictionary
+            row[2] = editdict_victoria[row[0]][1] #Comment_mathis = second entry in dictionary
+        else:
+            row[1] = 0
+        cursor.updateRow(row)
+
+#Delete sites, clean fields
+arcpy.CopyFeatures_management(EFpoints_Victoria_edit, EFpoints_Victoria_clean)
+with arcpy.da.UpdateCursor(EFpoints_Victoria_clean, ['Point_shift_mathis']) as cursor:
+    for row in cursor:
+        if row[0] == -1:
+            cursor.deleteRow()
+
+arcpy.AddGeometryAttributes_management(EFpoints_Victoria_clean, Geometry_Properties='POINT_X_Y_Z_M')
+arcpy.AlterField_management(EFpoints_Victoria_clean, field='POINT_X',
+                            new_field_name='Longitude_snapped', new_field_alias='Longitude_snapped')
+arcpy.AlterField_management(EFpoints_Victoria_clean, field='POINT_Y',
+                            new_field_name='Latitude_snapped', new_field_alias='Latitude_snapped')
+
+arcpy.SpatialJoin_analysis(EFpoints_Victoria_clean, hydroriv, EFpoints_Victoria_cleanjoin,
+                           join_operation='JOIN_ONE_TO_ONE', join_type="KEEP_COMMON",
+                           match_option='CLOSEST_GEODESIC', search_radius=0.005,
+                           distance_field_name='EFpoint_hydroriv_distance')
+
+arcpy.CopyRows_management(EFpoints_Victoria_clean,
+                          os.path.join(resdir,
+                                       'Victoria_EFpoints_clean_{}.csv'.format(date.today().strftime('%Y%m%d'))))
 
 #---------------------------------- FORMAT MEXICAN SITES ---------------------------------------------------------------
 #Link EF tab from Salinas-Rodriguez et al. 2021 to basin shapefile
@@ -164,7 +391,6 @@ editdict_mexico = {
     3081: [-1, 'Wrongly placed. Coastal basin encompassing other tributaries']
 }
 
-############## TO CONTINUE ##################
 arcpy.AddField_management(EFbasins_ptjointedit_Mexico, 'Point_shift_mathis', 'SHORT')
 arcpy.AddField_management(EFbasins_ptjointedit_Mexico, 'Comment_mathis', 'TEXT')
 
