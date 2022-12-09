@@ -1,11 +1,17 @@
 import cftime
 from datetime import datetime
 import os
+import numpy as np
 import pandas as pd
 from pathlib import Path
 import re
 import xarray as xr
 
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+import matplotlib.cbook as cbook
+from matplotlib import cm
+from scipy import interpolate
 
 rootdir = os.path.dirname(os.path.abspath(__file__)).split('\\src')[0]
 datdir = Path(rootdir, 'data')
@@ -79,11 +85,129 @@ for run in lyrsdf['run'].unique():
                                      3 * run_xr.groupby('month').std(dim='time')))
     )
 
-    #
+    #Compute mean monthly flow (mmf)
+    run_mmf = run_nooutliers.groupby('month').mean(dim='time')
+    # Compute mean annual flow (maf)
+    run_maf = run_nooutliers.mean(dim='time')
+    #Compute Q90
+    run_q90 = run_nooutliers.quantile(q=0.1, dim='time')
+    #Compute Q50
+    run_q50 = run_nooutliers.quantile(q=0.5, dim='time')
+
+
+    #Compute Tennant, Q90_Q50, Tessmann and VMF e-flows
+    global_monthly_eflows = xr.where(run_mmf<=run_maf,
+                                     0.2*run_maf,
+                                     0.4*run_maf).rename({"dis":"tennant"}). \
+        merge(xr.where(run_mmf<=run_maf,
+                       run_q90,
+                       run_q50).rename({"dis":"q90q50"})). \
+        merge(xr.where(run_mmf <= 0.4*run_maf,
+                       run_mmf,
+                       xr.where(0.4*run_mmf > 0.4*run_maf,
+                                0.4*run_mmf,
+                                0.4*run_maf)
+                       ).rename({"dis": "tessmann"})). \
+        merge(xr.where(run_mmf <= 0.4 * run_maf,
+                       0.6 * run_mmf,
+                       xr.where(run_mmf > 0.8 * run_maf,
+                                0.3 * run_mmf,
+                                0.45 * run_maf)
+                       ).rename({"dis": "vmf"}))
+
+    #Compute modern smakthin method
+    #Generate flow duration curve for each cell
+    quant_list = [0.0001, 0.001, 0.01, 0.05, 0.1, 0.2,
+                  0.3, 0.4, 0.5, 0.6, 0.7,
+                  0.8, 0.9, 0.95, 0.99, 0.999, 0.9999]
+    exceedance_list = [1-i for i in quant_list]
+    fdc_xr = run_xr.quantile(q=quant_list, dim='time').\
+        rename({"quantile" : "exceedance_prob"})
+    fdc_xr["exceedance_prob"] = 1 - fdc_xr["exceedance_prob"]
+
+
+    cell = run_xr.isel(lat=51, lon=51)
+    fdc_xr = fdc_xr
+    n_shift = 1
+
+    def compute_smakhtinef(cell, fdc_xr, n_shift):
+        fdc = fdc_xr.sel(lat=cell.lat.values, lon=cell.lon.values).dis
+        min_bin = min(fdc.values)
+        max_bin = max(fdc.values)
+
+        #If value is equal or less than min_bin, then replace with min_bin (also deals with 0s)
+        xp = np.log(fdc.values)
+        fp = np.roll(xp, n_shift)
+        f_shift = interpolate.interp1d(x=xp[(n_shift):], y=fp[(n_shift):],
+                                       kind='linear', fill_value='extrapolate')
+        ts_eflow_unfloored = np.exp(f_shift(np.log(cell.dis.values)))
+        return(xr.where(ts_eflow_unfloored <= min_bin, min_bin, ts_eflow_unfloored))
+
+    #Apply to each cell
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        #Interpolate between the nearest two log values and get the anti-log value of the interpolated result
+        #If you need to extrapolate, take the last two values and extrapolate using those two values
+
+
+        bin = xr.where((cell.dis < max_bin),
+                       np.searchsorted(a=fdc,
+                              v=cell.dis.values,
+                              side='left'),
+                       0) #To correct, should extrapolate otherwise
+        fdc.isel(exceedance_prob=bin.values)
+        fdc.isel(exceedance_prob=bin.values-n_shift)
+
+
+    np.exp(np.interp(np.log(cell.dis.values), xp=xp, fp=fp))
+    fdc_xr.isel(exceedance_prob=16).dis.plot.pcolormesh(cmap='viridis', norm=colors.LogNorm(vmin=0.001, vmax=120000))
+
+
+
+
+    run_maf.dis.plot.pcolormesh(cmap='viridis', norm=colors.LogNorm(vmin=0.001, vmax=120000))
+    run_q90.dis.plot.pcolormesh(cmap='viridis',norm=colors.LogNorm(vmin=0.001, vmax=120000))
+
+    lowflow.isel(time=0).dis
+
+    tennant_eflow.isel(month=0).dis.plot.pcolormesh(cmap='viridis')
+
+
+    #Compute Q90
+
+
+    # #Compute Q50
+
+    run_maf.dis.plot.pcolormesh(cmap='viridis')
+    fig = plt.figure()
+    plt.pcolormesh(run_maf.dis, #norm=colors.LogNorm(),
+                                      cmap='viridis')
+    plt.colorbar()
+
 
     check.isel(time=15).dis.plot()
 
-    check.isel(month=0).dis.plot.pcolormesh(cmap='viridis')
+    check.isel(month=0).dis.plot
 
 
 
@@ -115,9 +239,7 @@ for run in lyrsdf['run'].unique():
     check.isel(time=0).dis.plot.pcolormesh(cmap='viridis')
 
 
-# Compute mean monthly flow (MAF)
-#Compute Q90
-#Compute Q50
+
 
 
 
