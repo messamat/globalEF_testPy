@@ -37,34 +37,84 @@ lyrsdf['run'] = lyrsdf[['ghm', 'gcm', 'climate_scenario', 'human_scenario', 'var
 
 # Resample at monthly scale
 def aggregate_fromdf(row):
-    print(f"Processing {row['monthly_path']}")
-    xr.open_dataset(row['path']).resample(time='1MS').mean().to_netcdf(row['monthly_path'])
+    if not row['monthly_path'].exists():
+        print(f"Processing {row['monthly_path']}")
+        xr.open_dataset(row['path']).resample(time='1MS').mean().to_netcdf(row['monthly_path'])
+    else:
+        print(f"{row['monthly_path']} already exists. Skipping... ")
 lyrsdf.apply(aggregate_fromdf, axis=1)
 
-##Compute mean monthly flow (MMF) and monthly SD
+
 for run in lyrsdf['run'].unique():
     print(run)
     lyrsdf_sub = lyrsdf.loc[lyrsdf['run']==run]
-    run_xr = xr.open_mfdataset(lyrsdf_sub.monthly_path, concat_dim="time", combine='nested',
-                                   chunks={"time": 2400, "lat": 30, "lon": 30}, parallel=True, use_cftime=True)
 
-    run_xr['month'] = xr.concat(
-        [run_xr.where(run_xr.time <= max([i for i in run_xr["time"].values if i.calendar == 'gregorian']),
-                     drop=True)['time'].dt.strftime("%m"),
-        run_xr.where(run_xr.time > max([i for i in run_xr["time"].values if i.calendar == 'gregorian']),
-                     drop=True)['time'].dt.strftime("%m")],
-        dim='time'
+    # Cannot use run_xr.time.dt.month because open_mfdataset automatically reads data in two different calendars
+    # cftime.DatetimeGregorian an cftime.DeatetimeProlepticGregorian
+    run_xr = xr.open_dataset(lyrsdf_sub.monthly_path.iloc[0], use_cftime=True)
+    run_xr = run_xr.assign_coords(month=(
+        "time",
+        run_xr.time.dt.strftime("%m").data
+    ))
+
+    # run_xr = xr.open_mfdataset(lyrsdf_sub.monthly_path, concat_dim="time", combine='nested',
+    #                            chunks={"time": 2400, "lat": 30, "lon": 30}, parallel=True, use_cftime=True)
+    # run_xr = run_xr.assign_coords(month = (
+    #     "time",
+    #     xr.concat(
+    #         [run_xr.where(run_xr.time <= max([i for i in run_xr["time"].values if i.calendar == 'gregorian']),
+    #                       drop=True)['time'].dt.strftime("%m"),
+    #          run_xr.where(run_xr.time > max([i for i in run_xr["time"].values if i.calendar == 'gregorian']),
+    #                       drop=True)['time'].dt.strftime("%m")],
+    #         dim='time'
+    #     ).data
+    # ))
+
+    # Remove outliers - monthly flow values over mean+3sd or under mean-3sd
+    run_nooutliers = run_xr.where(
+        run_xr.groupby('month') <= ((run_xr.groupby('month').mean(dim='time') +
+                                     3 * run_xr.groupby('month').std(dim='time')))
+    ).where(
+        run_xr.groupby('month') >= ((run_xr.groupby('month').mean(dim='time') -
+                                     3 * run_xr.groupby('month').std(dim='time')))
     )
 
-    #Remove outliers - monthly flow values over mean+3sd or under mean-3sd
-    run_mmfplus3sd = run_xr.groupby('month').mean() + 3*run_xr.groupby('month').std()
-    run_mmfminus3sd = run_xr.groupby('month').mean() - 3*run_xr.groupby('month').std()
+    #
 
-    check = ds.where(run_xr.dis > run_mmfplus3sd....
+    check.isel(time=15).dis.plot()
+
+    check.isel(month=0).dis.plot.pcolormesh(cmap='viridis')
+
+
+
+
+
+
+
+
+    check.isel(month=0, lat=0, lon=0).dis
+    check.dis
+    (run_xr.groupby('month') -
+
+    check.isel(time=0).dis.plot()
+
+
+    run_xrstats = xr.merge([run_xr,
+                            .
+                           rename({"dis":"mmfplus3sd"})
+                            ])
+    run_xr['mmfplus3sd'] = run_xr.groupby('month').mean(dim='time') + 3*run_xr.groupby('month').std(dim='time')
+    run_mmfplus3sd['month'] = [str(i).zfill(2) for i in range(1,13)]
+    run_mmfminus3sd = run_xr.groupby('month').mean() - 3*run_xr.groupby('month').std()
+    run_mmfminus3sd['month'] = [str(i).zfill(2) for i in range(1, 13)]
+
+
+
+    check = run_xr.where(run_xr.dis < run_mmfplus3sd & run_xr.dis > )
 
     check.isel(time=0).dis.plot.pcolormesh(cmap='viridis')
 
-#Compute mean annual flow (MAF)
+
 # Compute mean monthly flow (MAF)
 #Compute Q90
 #Compute Q50
