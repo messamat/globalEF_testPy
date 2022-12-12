@@ -6,6 +6,8 @@ import pandas as pd
 from pathlib import Path
 import re
 import xarray as xr
+import cProfile as profile
+import pstats
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
@@ -122,28 +124,55 @@ for run in lyrsdf['run'].unique():
                   0.8, 0.9, 0.95, 0.99, 0.999, 0.9999]
     exceedance_list = [1-i for i in quant_list]
     fdc_xr = run_xr.quantile(q=quant_list, dim='time').\
-        rename({"quantile" : "exceedance_prob"})
+        rename({"quantile" : "exceedance_prob", "dis" : "fdc_dis"})
     fdc_xr["exceedance_prob"] = 1 - fdc_xr["exceedance_prob"]
 
+    run_fdc_merge = xr.merge([run_xr, fdc_xr])
 
-    cell = run_xr.isel(lat=51, lon=51)
-    fdc_xr = fdc_xr
-    n_shift = 1
+    def compute_smakhtinef(cell, n_shift=1, loginterp_padding = 0.001):
+        fdc = cell.fdc_dis.values.squeeze() + loginterp_padding
+        if (len(np.unique(fdc)) > 1):
+            xp = np.log(fdc)
+            fp = np.roll(xp, n_shift)
+            f_shift = interpolate.UnivariateSpline(x=xp[(n_shift):], y=fp[(n_shift):], k=1, ext=0)
+            ts_eflow_unfloored = np.exp(f_shift(np.log(cell.dis + loginterp_padding)))
+            return (
+                    xr.DataArray(xr.where(ts_eflow_unfloored <= fdc[0], fdc[0], ts_eflow_unfloored).squeeze(),
+                                 dims='time') - 0.001
+            )
+        else:
+            return(cell.dis.drop_vars(['lat', 'lon', 'month']))
 
-    def compute_smakhtinef(cell, fdc_xr, n_shift):
-        fdc = fdc_xr.sel(lat=cell.lat.values, lon=cell.lon.values).dis
-        min_bin = min(fdc.values)
-        max_bin = max(fdc.values)
+
 
         #If value is equal or less than min_bin, then replace with min_bin (also deals with 0s)
-        xp = np.log(fdc.values)
-        fp = np.roll(xp, n_shift)
-        f_shift = interpolate.interp1d(x=xp[(n_shift):], y=fp[(n_shift):],
-                                       kind='linear', fill_value='extrapolate')
-        ts_eflow_unfloored = np.exp(f_shift(np.log(cell.dis.values)))
-        return(xr.where(ts_eflow_unfloored <= min_bin, min_bin, ts_eflow_unfloored))
-
+        #Replace 0s with 0.001
     #Apply to each cell
+    # perform the hill climbing search with profiling
+    prof = profile.Profile()
+    prof.enable()
+    check = run_fdc_merge.isel(lat=slice(10, 80), lon=slice(10, 80)).\
+        stack(gridcell=["lat", "lon"]).\
+        groupby("gridcell").\
+        map(compute_smakhtinef).\
+        unstack('gridcell')
+    prof.disable()
+    # print profiling output
+    stats = pstats.Stats(prof).strip_dirs().sort_stats("tottime")
+    stats.print_stats(10)  # top 10 rows
+
+    cell = run_fdc_merge.sel(lat=22.75, lon=26.75)
+
+
+    check = run_fdc_merge.sel(lat=[25.25, 25.75], lon=[25.25, 25.75]).\
+        stack(gridcell=["lat", "lon"]).\
+        groupby("gridcell").\
+        map(compute_smakhtinef).\
+        unstack('gridcell')
+
+
+
+
 
 
 
