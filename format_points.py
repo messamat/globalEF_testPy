@@ -1,72 +1,72 @@
 import arcpy
 from datetime import date
 
-from GEFIS_setup import *
+from globalEF_comparison_setup import *
 
 #Input data - 2021 Master database
-csdat_1 = os.path.join(datdir, 'Formatted_data_Chandima_20211018') #Data folder from Chandima Subasinghe (CS)
-EFpoints_cs1 = os.path.join(csdat_1, "Combine_shiftedpoints.shp")
+csdat_1 = Path(datdir, 'Formatted_data_Chandima_20211018') #Data folder from Chandima Subasinghe (CS)
+EFpoints_cs1 = Path(csdat_1, "Combine_shiftedpoints.shp")
 
-csdat_2 = os.path.join(datdir, 'Formatted_data_Chandima_20211102')
-EFpoints_cs2 = [os.path.join(csdat_2, cspath) for cspath in
+csdat_2 = Path(datdir, 'Formatted_data_Chandima_20211102')
+EFpoints_cs2 = [Path(csdat_2, cspath) for cspath in
                 ['India_1.shp', 'Lesotho_1.shp', 'SA_Botswana_Zimbabwe_1.shp', 'South_africa_1.shp']]
 
 #Input data - Mexico
-EFtab_Mexico = os.path.join(resdir, 'mexico_refdata_preformatted.csv')
-basins_Mexico = os.path.join(datdir, 'GEFIS_test_data', 'Data by Country', 'Mexico',
+EFtab_Mexico = Path(resdir, 'mexico_refdata_preformatted.csv')
+basins_Mexico = Path(datdir, 'GEFIS_test_data', 'Data by Country', 'Mexico',
                              'Cuencas_hidrolOgicas_que_cuentan_con_reserva', 'Cuencas_hidrologicas_Reservas_Act757.shp')
 
 #Input data - Victoria
-EFgdb_Victoria = os.path.join(resdir, 'victoria_preprocessing.gdb')
-EFpoints_Victoria_raw = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_reportsraw')
+EFgdb_Victoria = Path(resdir, 'victoria_preprocessing.gdb')
+EFpoints_Victoria_raw = Path(EFgdb_Victoria, 'Victoria_EFpoints_reportsraw')
 
 #Input data - Rhone
-EFgdb_Rhone = os.path.join(resdir, 'france_preprocessing.gdb')
-EFpoints_Rhone_raw = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_reportsraw')
+EFgdb_Rhone = Path(resdir, 'france_preprocessing.gdb')
+EFpoints_Rhone_raw = Path(EFgdb_Rhone, 'Rhone_EFpoints_reportsraw')
 
 #Input data - General
 wgs84_epsg = 4326
-hydroriv = os.path.join(datdir, 'HydroRIVERS_v10.gdb', 'HydroRIVERS_v10') #Download from https://www.hydrosheds.org/page/hydrorivers
-up_area = os.path.join(datdir, 'upstream_area_skm_15s.gdb', 'up_area_skm_15s')
+hydroriv = Path(datdir, 'HydroRIVERS_v10.gdb', 'HydroRIVERS_v10') #Download from https://www.hydrosheds.org/page/hydrorivers
+up_area = Path(datdir, 'upstream_area_skm_15s.gdb', 'up_area_skm_15s')
 
 #Outputs - 2021 Master database
-process_gdb = os.path.join(resdir, 'processing_outputs.gdb')
+process_gdb = Path(resdir, 'processing_outputs.gdb')
 pathcheckcreate(process_gdb)
-EFpoints1_cscopy = os.path.join(process_gdb, 'Combine_shiftedpoints_copy')
-EFpoints1_joinedit = os.path.join(process_gdb, 'EFpoints1_joinedit')
-EFpoints1_clean = os.path.join(process_gdb, 'EFpoints1_clean')
-EFpoints1_cleanjoin = os.path.join(process_gdb, 'EFpoints1_cleanjoin')
+EFpoints1_cscopy = Path(process_gdb, 'Combine_shiftedpoints_copy')
+EFpoints1_joinedit = Path(process_gdb, 'EFpoints1_joinedit')
+EFpoints1_clean = Path(process_gdb, 'EFpoints1_clean')
+EFpoints1_cleanjoin = Path(process_gdb, 'EFpoints1_cleanjoin')
 
-EFpoints2_cscopy = os.path.join(process_gdb, 'EFpoints2_merge')
-EFpoints2_joinedit = os.path.join(process_gdb, 'EFpoints2_joinedit')
-EFpoints2_clean = os.path.join(process_gdb, 'EFpoints2_clean')
-EFpoints2_cleanjoin = os.path.join(process_gdb, 'EFpoints2_cleanjoin')
+EFpoints2_cscopy = Path(process_gdb, 'EFpoints2_merge')
+EFpoints2_joinedit = Path(process_gdb, 'EFpoints2_joinedit')
+EFpoints2_clean = Path(process_gdb, 'EFpoints2_clean')
+EFpoints2_cleanjoin = Path(process_gdb, 'EFpoints2_cleanjoin')
 
-EFpoints_1028notIWMI_raw = os.path.join(process_gdb, 'Master_20211104_parzered_notIWMI_raw')
-EFpoints_1028notIWMI_joinedit = os.path.join(process_gdb, 'Master_20211104_parzered_notIWMI_joinedit')
+EFpoints_1028notIWMI_raw = Path(process_gdb, 'Master_20211104_parzered_notIWMI_raw')
+EFpoints_1028notIWMI_joinedit = Path(process_gdb, 'Master_20211104_parzered_notIWMI_joinedit')
 
 #Outputs - Mexico
-EFbasins_Mexico = os.path.join(process_gdb, 'EFbasins_Mexico')
-EFbasins_Mexico_wgs84 = os.path.join(process_gdb, 'EFbasins_Mexico_wgs84')
-EFbasins_ptraw_Mexico = os.path.join(process_gdb, 'EFbasins_ptraw_Mexico')
-EFbasins_ptraw_attri_Mexico = os.path.join(process_gdb, 'EFbasins_ptraw_attri_Mexico')
-EFbasins_ptjointedit_Mexico = os.path.join(process_gdb, 'EFbasins_ptjoinedit_attri_Mexico')
+EFbasins_Mexico = Path(process_gdb, 'EFbasins_Mexico')
+EFbasins_Mexico_wgs84 = Path(process_gdb, 'EFbasins_Mexico_wgs84')
+EFbasins_ptraw_Mexico = Path(process_gdb, 'EFbasins_ptraw_Mexico')
+EFbasins_ptraw_attri_Mexico = Path(process_gdb, 'EFbasins_ptraw_attri_Mexico')
+EFbasins_ptjointedit_Mexico = Path(process_gdb, 'EFbasins_ptjoinedit_attri_Mexico')
 
 #Outputs - Victoria
-EFpoints_Victoria_snap = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_snap')
-EFpoints_Victoria_edit = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_edit')
-EFpoints_Victoria_clean = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_clean')
-EFpoints_Victoria_cleanjoin = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_cleanjoin')
+EFpoints_Victoria_snap = Path(EFgdb_Victoria, 'Victoria_EFpoints_snap')
+EFpoints_Victoria_edit = Path(EFgdb_Victoria, 'Victoria_EFpoints_edit')
+EFpoints_Victoria_clean = Path(EFgdb_Victoria, 'Victoria_EFpoints_clean')
+EFpoints_Victoria_cleanjoin = Path(EFgdb_Victoria, 'Victoria_EFpoints_cleanjoin')
 
 #Outputs - Rhone
-EFpoints_Rhone_snap = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_snap')
-EFpoints_Rhone_edit = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_edit')
-EFpoints_Rhone_clean = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_clean')
-EFpoints_Rhone_cleanjoin = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_cleanjoin')
+EFpoints_Rhone_snap = Path(EFgdb_Rhone, 'Rhone_EFpoints_snap')
+EFpoints_Rhone_edit = Path(EFgdb_Rhone, 'Rhone_EFpoints_edit')
+EFpoints_Rhone_clean = Path(EFgdb_Rhone, 'Rhone_EFpoints_clean')
+EFpoints_Rhone_cleanjoin = Path(EFgdb_Rhone, 'Rhone_EFpoints_cleanjoin')
 
 #Outputs - General
-EFpoints_1028_merge = os.path.join(process_gdb, 'EFpoints_20211104_merge')
-EFpoints_1028_clean = os.path.join(process_gdb, 'EFpoints_20211104_clean')
+EFpoints_1028_merge = Path(process_gdb, 'EFpoints_20211104_merge')
+EFpoints_1028_clean = Path(process_gdb, 'EFpoints_20211104_clean')
 
 #---------------------------------- FORMATTING RHONE SITES  ------------------------------------------------------------
 #Add raw coordinates to sites
@@ -189,7 +189,7 @@ arcpy.SpatialJoin_analysis(EFpoints_Rhone_clean, hydroriv, EFpoints_Rhone_cleanj
                            distance_field_name='EFpoint_hydroriv_distance')
 
 # arcpy.CopyRows_management(EFpoints_Rhone_clean,
-#                           os.path.join(resdir,
+#                           Path(resdir,
 #                                        'Rhone_EFpoints_clean_{}.csv'.format(date.today().strftime('%Y%m%d'))))
 
 #---------------------------------- FORMATTING VICTORIA SITES  --------------------------------------------------------
@@ -201,7 +201,7 @@ arcpy.AlterField_management(EFpoints_Victoria_raw, field='POINT_Y', new_field_na
 
 #The raw values are what's included in the Master Data Table
 arcpy.CopyRows_management(EFpoints_Victoria_raw,
-                          os.path.join(resdir,
+                          Path(resdir,
                                        'Victoria_EFpoints_raw_{}.csv'.format(date.today().strftime('%Y%m%d'))))
 
 #Snap to river network
@@ -257,7 +257,7 @@ arcpy.SpatialJoin_analysis(EFpoints_Victoria_clean, hydroriv, EFpoints_Victoria_
                            distance_field_name='EFpoint_hydroriv_distance')
 
 arcpy.CopyRows_management(EFpoints_Victoria_clean,
-                          os.path.join(resdir,
+                          Path(resdir,
                                        'Victoria_EFpoints_clean_{}.csv'.format(date.today().strftime('%Y%m%d'))))
 
 
@@ -560,7 +560,7 @@ with arcpy.da.UpdateCursor(EFpoints2_joinedit, ['E_flow_Loc', 'Point_shift_mathi
 #---------------------------------- FORMATTING OF SITES FROM OCT 28th 2021 DATABASE FREEZE -------------------------------
 ########## FINISH ADAPTING TO PYTHON ####################
 
-EFpoints_1028freeze = os.path.join(resdir, 'Master_20211104_parzered_notIWMI.csv')
+EFpoints_1028freeze = Path(resdir, 'Master_20211104_parzered_notIWMI.csv')
 
 #Master database at October 28th freeze
 #Formatting of the database from the original format
@@ -724,7 +724,7 @@ arcpy.Snap_edit(EFpoints_1028_clean, snapenv)
 arcpy.AddGeometryAttributes_management(EFpoints_1028_clean, Geometry_Properties='POINT_X_Y_Z_M')
 
 #Get formatted GRDC stations from global non-perennial rivers project (Messager et al. 2021) - doesn't work, did it manually
-gaugesp_out = os.path.join(process_gdb, 'GRDCstations_predbasic800')
+gaugesp_out = Path(process_gdb, 'GRDCstations_predbasic800')
 if not arcpy.Exists(gaugesp_out):
     arcpy.CopyFeatures_management(in_features = 'D://globalIRmap/results/GRDCstations_predbasic800.gpkg/GRDCstations_predbasic800',
-                                  out_feature_class= os.path.join(process_gdb, 'GRDCstations_predbasic800'))
+                                  out_feature_class= Path(process_gdb, 'GRDCstations_predbasic800'))

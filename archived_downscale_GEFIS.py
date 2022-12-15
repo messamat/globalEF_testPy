@@ -1,4 +1,4 @@
-from GEFIS_setup import *
+from globalEF_comparison_setup import *
 
 #Input variables
 gefis_mpk = os.path.join(datdir, 'Global Environmental Flow Calculation_FAO_all.mpk') #Map package provided by CS with GEFIS data

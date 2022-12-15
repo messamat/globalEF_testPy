@@ -1,6 +1,4 @@
-import os
-from pathlib import Path
-import requests
+from globalEF_comparison_setup import *
 
 
 rootdir = os.path.dirname(os.path.abspath(__file__)).split('\\src')[0]

@@ -1,14 +1,9 @@
-import os
-import numpy as np
-import pandas as pd
-from pathlib import Path
-import re
+from globalEF_comparison_setup import * #See this module for directory structure
 from scipy import interpolate
 #import time
 import xarray as xr
 #import cProfile as profile
 #import pstats
-from GEFIS_setup import * #See this module for directory structure
 
 #Set up structure
 isimp2b_datdir = Path(datdir, 'isimp2b')

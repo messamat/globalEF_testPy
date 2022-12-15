@@ -1,4 +1,4 @@
-from GEFIS_setup import *
+from globalEF_comparison_setup import *
 
 #Inputs
 process_gdb = os.path.join(resdir, 'processing_outputs.gdb')

@@ -1,19 +1,19 @@
-from GEFIS_setup import *
+from globalEF_comparison_setup import *
 
 #Intputs
-process_gdb = os.path.join(resdir, 'processing_outputs.gdb')
-EFpoints_QAQCed = os.path.join(resdir, 'Master_20211104_QAQCed.csv')
-riveratlas = os.path.join(datdir, 'RiverATLAS_v10.gdb', 'RiverATLAS_v10')
+process_gdb = Path(resdir, 'processing_outputs.gdb')
+EFpoints_QAQCed = Path(resdir, 'Master_20211104_QAQCed.csv')
+riveratlas = Path(datdir, 'RiverATLAS_v10.gdb', 'RiverATLAS_v10')
 
-DA_grid = os.path.join(datdir, 'upstream_area_skm_15s.gdb', 'up_area_skm_15s') #HydroSHEDS upstream area grid
-MAF_nat_grid = os.path.join(datdir, 'discharge_wg22_1971_2000.gdb', 'dis_nat_wg22_ls_year') #WaterGAP naturalized mean annual discharge grid downscaled to 15s
-MAF_ant_grid = os.path.join(datdir, 'discharge_wg22_1971_2000.gdb', 'dis_ant_wg22_ls_year') #WaterGAP naturalized mean annual discharge grid downscaled to 15s
-#monthlyF_net = os.path.join(datdir, 'HS_discharge_monthly.gdb', 'Hydrosheds_discharge_monthly') #WaterGAP natural mean monthly discharge associated with HydroRIVERS
+DA_grid = Path(datdir, 'upstream_area_skm_15s.gdb', 'up_area_skm_15s') #HydroSHEDS upstream area grid
+MAF_nat_grid = Path(datdir, 'discharge_wg22_1971_2000.gdb', 'dis_nat_wg22_ls_year') #WaterGAP naturalized mean annual discharge grid downscaled to 15s
+MAF_ant_grid = Path(datdir, 'discharge_wg22_1971_2000.gdb', 'dis_ant_wg22_ls_year') #WaterGAP naturalized mean annual discharge grid downscaled to 15s
+#monthlyF_net = Path(datdir, 'HS_discharge_monthly.gdb', 'Hydrosheds_discharge_monthly') #WaterGAP natural mean monthly discharge associated with HydroRIVERS
 
 #Outputs
-riveratlas_csv = os.path.join(resdir, 'RiverATLAS_v10tab.csv')
-EFpoints_QAQCed_p = os.path.join(process_gdb, 'Master_20211104_QAQCed')
-EFpoints_QAQCed_riverjoin = os.path.join(process_gdb, 'Master_20211104_QAQCed_riverjoin')
+riveratlas_csv = Path(resdir, 'RiverATLAS_v10tab.csv')
+EFpoints_QAQCed_p = Path(process_gdb, 'Master_20211104_QAQCed')
+EFpoints_QAQCed_riverjoin = Path(process_gdb, 'Master_20211104_QAQCed_riverjoin')
 
 #------------------------------- Analysis ------------------------------------------------------------------------------
 #Create points for those with valid coordinates (see merge_dbversions.r)
