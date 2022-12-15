@@ -7,7 +7,25 @@ which itself requires a Windows OS. We used the Python Arcpy module associated w
 This repository includes the portions of the analysis conducted in Python, which encompass all spatial formatting of the
 data prior to data analysis. 
 
+
+In Python:
+1. Download isimp2b
+2. Pre-process isimp2b
+
+#For Rhone sites
+download_france_rhone.R
+manual processing/data extraction
+format_points.py
+process_france_rhone.R
+
+#For Mexico: download_format_Mexico.R -> 'mexico_refdata_preformatted.csv'
+
 Prior to the spatial formatting, execute src/GEFIS_testR/preQAQC_format.R
+3. format_points.py
+4. link_sites_ef
+5. link_sites_GRDC
+6. link_
+
 
 Then, to reproduce the spatial formatting of the data, the scripts need to be run in the following order:
 1. downscale_GEFIS.py

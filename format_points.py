@@ -11,8 +11,6 @@ csdat_2 = os.path.join(datdir, 'Formatted_data_Chandima_20211102')
 EFpoints_cs2 = [os.path.join(csdat_2, cspath) for cspath in
                 ['India_1.shp', 'Lesotho_1.shp', 'SA_Botswana_Zimbabwe_1.shp', 'South_africa_1.shp']]
 
-EFpoints_1028freeze = os.path.join(resdir, 'Master_20211104_parzered_notIWMI.csv')
-
 #Input data - Mexico
 EFtab_Mexico = os.path.join(resdir, 'mexico_refdata_preformatted.csv')
 basins_Mexico = os.path.join(datdir, 'GEFIS_test_data', 'Data by Country', 'Mexico',
@@ -70,7 +68,7 @@ EFpoints_Rhone_cleanjoin = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_cleanjoin')
 EFpoints_1028_merge = os.path.join(process_gdb, 'EFpoints_20211104_merge')
 EFpoints_1028_clean = os.path.join(process_gdb, 'EFpoints_20211104_clean')
 
-#---------------------------------- FORMATTING RHONE SITES  --------------------------------------------------------
+#---------------------------------- FORMATTING RHONE SITES  ------------------------------------------------------------
 #Add raw coordinates to sites
 arcpy.AddGeometryAttributes_management(EFpoints_Rhone_raw, Geometry_Properties='POINT_X_Y_Z_M')
 arcpy.AlterField_management(EFpoints_Rhone_raw, field='POINT_X', new_field_name='Longitude_original', new_field_alias='Longitude_original')
@@ -194,20 +192,6 @@ arcpy.SpatialJoin_analysis(EFpoints_Rhone_clean, hydroriv, EFpoints_Rhone_cleanj
 #                           os.path.join(resdir,
 #                                        'Rhone_EFpoints_clean_{}.csv'.format(date.today().strftime('%Y%m%d'))))
 
-#Downloaded stream condition index from
-"""
-Title 	Index of Stream Condition
-URL https://datashare.maps.vic.gov.au/search?md=48d03335-0ee2-5107-838a-630808cf0f09
-ANZLICID 	ANZVI0803002935
-Custodian 	Department of Environment, Land, Water & Planning
-Abstract 	Rates each section of major rivers according to a defined set of rules.
-Search Words 	inland waters
-Contact 	Point of contact resource Department of Environment, Land, Water & Planning Rwmp.wim@dse.vic.gov.au RWMP 
-Info RWMP RWMP Info Level 10 / 8 Nicholson St, East Melbourne, Vic, 3002, Australia +61 3 9637 9010,+61 3 9637 8489;
-Point of contact metadata Department of Environment, Land, Water & Planning Rwmp.wim@dse.vic.gov.au RWMP Info RWMP RWMP
- Info Level 10 / 8 Nicholson St, East Melbourne, Vic, 3002, Australia +61 3 9637 9010,+61 3 9637 8489 """
-
-
 #---------------------------------- FORMATTING VICTORIA SITES  --------------------------------------------------------
 #Add raw coordinates to sites
 arcpy.AddGeometryAttributes_management(EFpoints_Victoria_raw, Geometry_Properties='POINT_X_Y_Z_M')
@@ -276,6 +260,21 @@ arcpy.CopyRows_management(EFpoints_Victoria_clean,
                           os.path.join(resdir,
                                        'Victoria_EFpoints_clean_{}.csv'.format(date.today().strftime('%Y%m%d'))))
 
+
+#Downloaded stream condition index from
+"""
+Title 	Index of Stream Condition
+URL https://datashare.maps.vic.gov.au/search?md=48d03335-0ee2-5107-838a-630808cf0f09
+ANZLICID 	ANZVI0803002935
+Custodian 	Department of Environment, Land, Water & Planning
+Abstract 	Rates each section of major rivers according to a defined set of rules.
+Search Words 	inland waters
+Contact 	Point of contact resource Department of Environment, Land, Water & Planning Rwmp.wim@dse.vic.gov.au RWMP 
+Info RWMP RWMP Info Level 10 / 8 Nicholson St, East Melbourne, Vic, 3002, Australia +61 3 9637 9010,+61 3 9637 8489;
+Point of contact metadata Department of Environment, Land, Water & Planning Rwmp.wim@dse.vic.gov.au RWMP Info RWMP RWMP
+ Info Level 10 / 8 Nicholson St, East Melbourne, Vic, 3002, Australia +61 3 9637 9010,+61 3 9637 8489 """
+
+
 #---------------------------------- FORMAT MEXICAN SITES ---------------------------------------------------------------
 #Link EF tab from Salinas-Rodriguez et al. 2021 to basin shapefile
 if not arcpy.Exists(EFbasins_Mexico):
@@ -315,7 +314,7 @@ if not arcpy.Exists(EFbasins_ptjointedit_Mexico):
     arcpy.AddField_management(EFbasins_ptjointedit_Mexico, field_name='DApercdiff', field_type='FLOAT')
     with arcpy.da.UpdateCursor(EFbasins_ptjointedit_Mexico, ['AREA_GEO', 'UPLAND_SKM', 'DApercdiff']) as cursor:
         for row in cursor:
-            if int(row[0]) > 0L:
+            if int(row[0]) > int(0):
                 row[2] = (float(row[1]) - float(row[0]))/float(row[0])
             cursor.updateRow(row)
 
@@ -420,7 +419,7 @@ if not arcpy.Exists(EFpoints1_joinedit):
     with arcpy.da.UpdateCursor(EFpoints1_joinedit, ['Upstream_C', 'UPLAND_SKM', 'DApercdiff']) as cursor:
         for row in cursor:
             if re.match('^[0-9]+$', string = row[0]):
-                if int(row[0]) > 0L:
+                if int(row[0]) > int(0):
                     row[2] = (float(row[1]) - float(row[0]))/float(row[0])
             cursor.updateRow(row)
 
@@ -559,6 +558,34 @@ with arcpy.da.UpdateCursor(EFpoints2_joinedit, ['E_flow_Loc', 'Point_shift_mathi
         cursor.updateRow(row)
 
 #---------------------------------- FORMATTING OF SITES FROM OCT 28th 2021 DATABASE FREEZE -------------------------------
+########## FINISH ADAPTING TO PYTHON ####################
+
+EFpoints_1028freeze = os.path.join(resdir, 'Master_20211104_parzered_notIWMI.csv')
+
+#Master database at October 28th freeze
+#Formatting of the database from the original format
+# db3 = pd.read_excel(Path(datdir, "GEFIS_test_data/Master Data Table_20211104.xlsx"), sheet_name = 'Data')
+# db3 <- as.data.table(
+#   readxl::read_xlsx(
+#     path = file.path(datdir, ),
+#     sheet = 'Data')
+# )
+#
+# #Standardize "Original" coordinates
+# setnames(db3, old=c('Latitude', 'Longitude'),
+#          new=c('Latitude_original', 'Longitude_original'))
+# db3[, `:=`(
+#   latitude_parzer = parse_lat(Latitude_original),
+#   longitude_parzer = parse_lon(Longitude_original))
+# ]
+#
+# check_lat <- db3[, .(Latitude_original, latitude_parzer)]
+# check_lon <- db3[, .(Longitude_original, longitude_parzer)]
+#
+# fwrite(db3[is.na(no),],
+#        file.path(resdir, 'Master_20211104_parzered_notIWMI.csv'))
+##################################################
+
 #Create points for those with valid coordinates (see merge_dbversions.r)
 arcpy.MakeXYEventLayer_management(table = EFpoints_1028freeze,
                                   in_x_field = 'longitude_parzer',
@@ -626,7 +653,7 @@ editdict = {
     648: [1, 'Moved to correct tributary Mienia']
 }
 
-for id in range(208, 413)+[439, 440, 441]:
+for id in list(range(208, 413))+[439, 440, 441]:
     editdict[id] = [-1, None]
 
 arcpy.AddField_management(EFpoints_1028notIWMI_joinedit, 'Point_shift_mathis', 'SHORT')

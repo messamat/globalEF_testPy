@@ -5,15 +5,22 @@ import math
 import numpy as np
 import os
 import pandas as pd
+from pathlib import Path
 import re
 import traceback
 import sys
 
+from inspect import getsourcefile
+
 arcpy.CheckOutExtension('Spatial')
 arcpy.env.overwriteOutput = True
 
+#Get current root directory
+def get_root_fromsrcdir():
+    return(os.path.dirname(os.path.abspath(getsourcefile(lambda:0)))).split('\\src')[0]
+
 #Folder structure
-rootdir = os.path.dirname(os.path.abspath(__file__)).split('\\src')[0]
+rootdir = get_root_fromsrcdir()
 datdir = os.path.join(rootdir, 'data')
 resdir = os.path.join(rootdir, 'results')
 

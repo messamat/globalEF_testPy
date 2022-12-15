@@ -8,12 +8,9 @@ from scipy import interpolate
 import xarray as xr
 #import cProfile as profile
 #import pstats
+from GEFIS_setup import * #See this module for directory structure
 
 #Set up structure
-rootdir = os.path.dirname(os.path.abspath(__file__)).split('\\src')[0]
-datdir = Path(rootdir, 'data')
-resdir = Path(rootdir, 'results')
-
 isimp2b_datdir = Path(datdir, 'isimp2b')
 
 #Function
@@ -36,7 +33,8 @@ lyrsdf = pd.DataFrame.from_dict(
              2, 'var',  3, 'time_step', 'start_yr', 'end_yr']
 ). \
     drop(columns=[1, 2, 3]). \
-    reset_index(names='path')
+    reset_index().\
+    rename(columns={'index' : 'path'})
 
 #Create output path for monthly resampling
 lyrsdf['monthly_path'] = [Path(isimp2b_resdir,
@@ -46,29 +44,20 @@ lyrsdf['run'] = lyrsdf[['ghm', 'gcm', 'climate_scenario', 'human_scenario', 'var
     lambda row: '_'.join(row.values.astype(str)), axis=1)
 
 # Resample at monthly scale
-def aggregate_monthly_fromdf(row):
+# Some of the simulations have negative values of discharge and/or runoff
+def aggregate_monthly_fromdf(row, remove_negative_values=True):
     if not row['monthly_path'].exists():
         print(f"Processing {row['monthly_path']}")
-        xr.open_dataset(row['path']).resample(time='1MS').mean().to_netcdf(row['monthly_path'])
+        xr_toresample = xr.open_dataset(row['path'])
+        if remove_negative_values:
+            xr_toresample['dis'] = xr.where(xr_toresample.dis < 0, 0, xr_toresample.dis)
+        xr_toresample.resample(time='1MS').mean().to_netcdf(row['monthly_path'])
     else:
         print(f"{row['monthly_path']} already exists. Skipping... ")
 lyrsdf.apply(aggregate_monthly_fromdf, axis=1)
 
 #### -------------- Function to compute Tennant, Q90Q50, Tessmann and VMF eflows ---------------------------------------------------
 def compute_monthlyef_notsmakhtin(in_xr, out_efnc, remove_outliers = True):
-    # Cannot use run_xr.time.dt.month because open_mfdataset automatically reads data in two different calendars
-    # cftime.DatetimeGregorian an cftime.DeatetimeProlepticGregorian
-    in_xr = in_xr.assign_coords(month=(
-        "time",
-        xr.concat(
-            [in_xr.where(in_xr.time <= max([i for i in in_xr["time"].values if i.calendar == 'gregorian']),
-                         drop=True)['time'].dt.strftime("%m"),
-             in_xr.where(in_xr.time > max([i for i in in_xr["time"].values if i.calendar == 'gregorian']),
-                         drop=True)['time'].dt.strftime("%m")],
-            dim='time'
-        ).data
-    ))
-
     # Remove outliers - monthly flow values over mean+3sd or under mean-3sd
     if remove_outliers:
         run_nooutliers = spatiotemporal_chunk_optimized_acrosstime(
@@ -194,14 +183,22 @@ def compute_smakhtinef_ts(cell, n_shift=1, loginterp_padding = 0.00001):
             xr.DataArray(cell.dis.values.squeeze(), dims='time')
         )
 
+# To deal with zeros
+# check = run_fdc_merge_disk.isel(lat=slice(130,131), lon=slice(426, 427)).stack(gridcell=["lat", "lon"]). \
+#     groupby("gridcell"). \
+#     map(compute_smakhtinef_ts, args=[n_shift])
+#
+# cell = run_fdc_merge_disk.isel(lat=130, lon=426, time=slice(0,120))
+# check = compute_smakhtinef_ts(cell)
+
 def compute_smakhtinef_stats(in_xr, out_dir, out_efnc_basename, n_shift=1):
     #Compute time series of e-flow based on Smakthin flow duration curve method
     smakthin_quantlist = [0.0001, 0.001, 0.01, 0.05, 0.1, 0.2, 0.3,
                                     0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 0.999, 0.9999]
     fdc_xr = compute_xrfdc(in_xr = in_xr,
                            quant_list = smakthin_quantlist)
-    xr.merge([in_xr, fdc_xr]).to_netcdf(Path(out_dir, 'scratch.nc4'))
-    run_fdc_merge_disk = xr.open_dataset(Path(out_dir, 'scratch.nc4'))
+    xr.merge([in_xr, fdc_xr]).to_netcdf(Path(out_dir, 'scratch2.nc4'))
+    run_fdc_merge_disk = xr.open_dataset(Path(out_dir, 'scratch2.nc4'))
 
     smakhtinef_a = run_fdc_merge_disk.stack(gridcell=["lat", "lon"]).\
         groupby("gridcell").\
@@ -233,13 +230,29 @@ for run in lyrsdf['run'].unique():
                           use_cftime=True)
     )
 
+    # Cannot use run_xr.time.dt.month because open_mfdataset automatically reads data in two different calendars
+    # cftime.DatetimeGregorian an cftime.DeatetimeProlepticGregorian
+    xr_calendars = np.unique([i.calendar for i in run_xr["time"].values])
+    if len(xr_calendars) > 1:
+        run_xr = run_xr.assign_coords(month=(
+            "time",
+            xr.concat(
+                [run_xr.where(run_xr.time <= max([i for i in run_xr["time"].values if i.calendar == list(xr_calendars)[0]]),
+                              drop=True)['time'].dt.strftime("%m"),
+                 run_xr.where(run_xr.time > max([i for i in run_xr["time"].values if i.calendar == list(xr_calendars)[0]]),
+                              drop=True)['time'].dt.strftime("%m")],
+                dim='time'
+            ).data
+        ))
+    else :
+        run_xr = run_xr.assign_coords(month=run_xr.time.dt.strftime("%m"))
+
     outpath_ef_notsmakhtin = Path(isimp2b_resdir, f'{run}_allefbutsmakhtin.nc4')
     if not outpath_ef_notsmakhtin.exists():
         print(f"Processing {outpath_ef_notsmakhtin.name}")
         compute_monthlyef_notsmakhtin(in_xr = run_xr, out_efnc=outpath_ef_notsmakhtin , remove_outliers=True)
     else:
         print(f"{outpath_ef_notsmakhtin.name} already exists. Skipping...")
-
 
 
     for shift, emc in enumerate(['a', 'b', 'c', 'd']):
@@ -250,7 +263,6 @@ for run in lyrsdf['run'].unique():
                                      out_efnc_basename=outpath_ef_smakhtin, n_shift=shift)
         else:
             print(f"{outpath_ef_smakhtin} already exists. Skipping...")
-
 
 
 
