@@ -1,86 +1,88 @@
-import arcpy
-from datetime import date
-
 from globalEF_comparison_setup import *
+from lat_lon_parser import parse
 
 #Input data - 2021 Master database
-csdat_1 = Path(datdir, 'Formatted_data_Chandima_20211018') #Data folder from Chandima Subasinghe (CS)
-EFpoints_cs1 = Path(csdat_1, "Combine_shiftedpoints.shp")
+csdat_1 = os.path.join(datdir, 'Formatted_data_Chandima_20211018') #Data folder from Chandima Subasinghe (CS)
+EFpoints_cs1 = os.path.join(csdat_1, "Combine_shiftedpoints.shp")
 
-csdat_2 = Path(datdir, 'Formatted_data_Chandima_20211102')
-EFpoints_cs2 = [Path(csdat_2, cspath) for cspath in
+csdat_2 = os.path.join(datdir, 'Formatted_data_Chandima_20211102')
+EFpoints_cs2 = [os.path.join(csdat_2, cspath) for cspath in
                 ['India_1.shp', 'Lesotho_1.shp', 'SA_Botswana_Zimbabwe_1.shp', 'South_africa_1.shp']]
 
+#Master database at October 28th freeze
+EFpoints_1028freeze = os.path.join(datdir, "GEFIS_test_data/Master Data Table_20211104.xlsx")
+EFpoints_1028freeze_parzered = os.path.join(resdir, 'Master_20211104_parzered_notIWMI.csv')
+
 #Input data - Mexico
-EFtab_Mexico = Path(resdir, 'mexico_refdata_preformatted.csv')
-basins_Mexico = Path(datdir, 'GEFIS_test_data', 'Data by Country', 'Mexico',
+EFtab_Mexico = os.path.join(resdir, 'mexico_refdata_preformatted.csv')
+basins_Mexico = os.path.join(datdir, 'GEFIS_test_data', 'Data by Country', 'Mexico',
                              'Cuencas_hidrolOgicas_que_cuentan_con_reserva', 'Cuencas_hidrologicas_Reservas_Act757.shp')
 
 #Input data - Victoria
-EFgdb_Victoria = Path(resdir, 'victoria_preprocessing.gdb')
-EFpoints_Victoria_raw = Path(EFgdb_Victoria, 'Victoria_EFpoints_reportsraw')
+EFgdb_Victoria = os.path.join(resdir, 'victoria_preprocessing.gdb')
+EFpoints_Victoria_raw = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_reportsraw')
 
 #Input data - Rhone
-EFgdb_Rhone = Path(resdir, 'france_preprocessing.gdb')
-EFpoints_Rhone_raw = Path(EFgdb_Rhone, 'Rhone_EFpoints_reportsraw')
+EFgdb_Rhone = os.path.join(resdir, 'france_preprocessing.gdb')
+EFpoints_Rhone_raw = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_reportsraw')
 
 #Input data - General
 wgs84_epsg = 4326
-hydroriv = Path(datdir, 'HydroRIVERS_v10.gdb', 'HydroRIVERS_v10') #Download from https://www.hydrosheds.org/page/hydrorivers
-up_area = Path(datdir, 'upstream_area_skm_15s.gdb', 'up_area_skm_15s')
+hydroriv = os.path.join(datdir, 'HydroRIVERS_v10.gdb', 'HydroRIVERS_v10') #Download from https://www.hydrosheds.org/page/hydrorivers
+up_area = os.path.join(datdir, 'upstream_area_skm_15s.gdb', 'up_area_skm_15s')
 
 #Outputs - 2021 Master database
-process_gdb = Path(resdir, 'processing_outputs.gdb')
+process_gdb = os.path.join(resdir, 'processing_outputs.gdb')
 pathcheckcreate(process_gdb)
-EFpoints1_cscopy = Path(process_gdb, 'Combine_shiftedpoints_copy')
-EFpoints1_joinedit = Path(process_gdb, 'EFpoints1_joinedit')
-EFpoints1_clean = Path(process_gdb, 'EFpoints1_clean')
-EFpoints1_cleanjoin = Path(process_gdb, 'EFpoints1_cleanjoin')
+EFpoints1_cscopy = os.path.join(process_gdb, 'Combine_shiftedpoints_copy')
+EFpoints1_joinedit = os.path.join(process_gdb, 'EFpoints1_joinedit')
+EFpoints1_clean = os.path.join(process_gdb, 'EFpoints1_clean')
+EFpoints1_cleanjoin = os.path.join(process_gdb, 'EFpoints1_cleanjoin')
 
-EFpoints2_cscopy = Path(process_gdb, 'EFpoints2_merge')
-EFpoints2_joinedit = Path(process_gdb, 'EFpoints2_joinedit')
-EFpoints2_clean = Path(process_gdb, 'EFpoints2_clean')
-EFpoints2_cleanjoin = Path(process_gdb, 'EFpoints2_cleanjoin')
+EFpoints2_cscopy = os.path.join(process_gdb, 'EFpoints2_merge')
+EFpoints2_joinedit = os.path.join(process_gdb, 'EFpoints2_joinedit')
+EFpoints2_clean = os.path.join(process_gdb, 'EFpoints2_clean')
+EFpoints2_cleanjoin = os.path.join(process_gdb, 'EFpoints2_cleanjoin')
 
-EFpoints_1028notIWMI_raw = Path(process_gdb, 'Master_20211104_parzered_notIWMI_raw')
-EFpoints_1028notIWMI_joinedit = Path(process_gdb, 'Master_20211104_parzered_notIWMI_joinedit')
+EFpoints_1028notIWMI_raw = os.path.join(process_gdb, 'Master_20211104_parzered_notIWMI_raw')
+EFpoints_1028notIWMI_joinedit = os.path.join(process_gdb, 'Master_20211104_parzered_notIWMI_joinedit')
 
 #Outputs - Mexico
-EFbasins_Mexico = Path(process_gdb, 'EFbasins_Mexico')
-EFbasins_Mexico_wgs84 = Path(process_gdb, 'EFbasins_Mexico_wgs84')
-EFbasins_ptraw_Mexico = Path(process_gdb, 'EFbasins_ptraw_Mexico')
-EFbasins_ptraw_attri_Mexico = Path(process_gdb, 'EFbasins_ptraw_attri_Mexico')
-EFbasins_ptjointedit_Mexico = Path(process_gdb, 'EFbasins_ptjoinedit_attri_Mexico')
+EFbasins_Mexico = os.path.join(process_gdb, 'EFbasins_Mexico')
+EFbasins_Mexico_wgs84 = os.path.join(process_gdb, 'EFbasins_Mexico_wgs84')
+EFbasins_ptraw_Mexico = os.path.join(process_gdb, 'EFbasins_ptraw_Mexico')
+EFbasins_ptraw_attri_Mexico = os.path.join(process_gdb, 'EFbasins_ptraw_attri_Mexico')
+EFbasins_ptjointedit_Mexico = os.path.join(process_gdb, 'EFbasins_ptjoinedit_attri_Mexico')
 
 #Outputs - Victoria
-EFpoints_Victoria_snap = Path(EFgdb_Victoria, 'Victoria_EFpoints_snap')
-EFpoints_Victoria_edit = Path(EFgdb_Victoria, 'Victoria_EFpoints_edit')
-EFpoints_Victoria_clean = Path(EFgdb_Victoria, 'Victoria_EFpoints_clean')
-EFpoints_Victoria_cleanjoin = Path(EFgdb_Victoria, 'Victoria_EFpoints_cleanjoin')
+EFpoints_Victoria_snap = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_snap')
+EFpoints_Victoria_edit = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_edit')
+EFpoints_Victoria_clean = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_clean')
+EFpoints_Victoria_cleanjoin = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_cleanjoin')
 
 #Outputs - Rhone
-EFpoints_Rhone_snap = Path(EFgdb_Rhone, 'Rhone_EFpoints_snap')
-EFpoints_Rhone_edit = Path(EFgdb_Rhone, 'Rhone_EFpoints_edit')
-EFpoints_Rhone_clean = Path(EFgdb_Rhone, 'Rhone_EFpoints_clean')
-EFpoints_Rhone_cleanjoin = Path(EFgdb_Rhone, 'Rhone_EFpoints_cleanjoin')
+EFpoints_Rhone_snap = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_snap')
+EFpoints_Rhone_edit = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_edit')
+EFpoints_Rhone_clean = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_clean')
+EFpoints_Rhone_cleanjoin = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_cleanjoin')
 
 #Outputs - General
-EFpoints_1028_merge = Path(process_gdb, 'EFpoints_20211104_merge')
-EFpoints_1028_clean = Path(process_gdb, 'EFpoints_20211104_clean')
+EFpoints_1028_merge = os.path.join(process_gdb, 'EFpoints_20211104_merge')
+EFpoints_1028_clean = os.path.join(process_gdb, 'EFpoints_20211104_clean')
 
 #---------------------------------- FORMATTING RHONE SITES  ------------------------------------------------------------
 #Add raw coordinates to sites
-arcpy.AddGeometryAttributes_management(EFpoints_Rhone_raw, Geometry_Properties='POINT_X_Y_Z_M')
-arcpy.AlterField_management(EFpoints_Rhone_raw, field='POINT_X', new_field_name='Longitude_original', new_field_alias='Longitude_original')
-arcpy.AlterField_management(EFpoints_Rhone_raw, field='POINT_Y', new_field_name='Latitude_original', new_field_alias='Latitude_original')
-
+arcpy.management.CalculateGeometryAttributes(in_features=EFpoints_Rhone_raw,
+                                             geometry_property=[['Longitude_original', 'POINT_X'],
+                                                                ['Latitude_original', 'POINT_Y']])
 #Snap to river network
 snapenv = [[hydroriv, 'EDGE', '1000 meters']]
-arcpy.CopyFeatures_management(EFpoints_Rhone_raw, EFpoints_Rhone_snap)
-arcpy.Snap_edit(EFpoints_Rhone_snap, snapenv)
+arcpy.management.CopyFeatures(in_features=EFpoints_Rhone_raw, out_feature_class=EFpoints_Rhone_snap)
+arcpy.edit.Snap(in_features=EFpoints_Rhone_snap, snap_environment=snapenv)
 
 #Record of edits (UID: action code, comment)
-arcpy.CopyFeatures_management(EFpoints_Rhone_snap, EFpoints_Rhone_edit)
+if not arcpy.Exists(EFpoints_Rhone_edit):
+    arcpy.management.CopyFeatures(EFpoints_Rhone_snap, EFpoints_Rhone_edit)
 
 editdict_Rhone = {
     6: [1, 'Move to correct watercourse, Le Breuchin'],
@@ -158,8 +160,8 @@ editdict_Rhone = {
     504: [-1, "Not represented in HydroRIVERS"]
 }
 
-arcpy.AddField_management(EFpoints_Rhone_edit, 'Point_shift_mathis', 'SHORT')
-arcpy.AddField_management(EFpoints_Rhone_edit, 'Comment_mathis', 'TEXT')
+arcpy.management.AddField(EFpoints_Rhone_edit, 'Point_shift_mathis', 'SHORT')
+arcpy.management.AddField(EFpoints_Rhone_edit, 'Comment_mathis', 'TEXT')
 
 with arcpy.da.UpdateCursor(EFpoints_Rhone_edit, ['UID_Mathis', 'Point_shift_mathis', 'Comment_mathis']) as cursor:
     for row in cursor:
@@ -171,46 +173,44 @@ with arcpy.da.UpdateCursor(EFpoints_Rhone_edit, ['UID_Mathis', 'Point_shift_math
         cursor.updateRow(row)
 
 #Delete sites, clean fields
-arcpy.CopyFeatures_management(EFpoints_Rhone_edit, EFpoints_Rhone_clean)
+arcpy.management.CopyFeatures(EFpoints_Rhone_edit, EFpoints_Rhone_clean)
 with arcpy.da.UpdateCursor(EFpoints_Rhone_clean, ['Point_shift_mathis']) as cursor:
     for row in cursor:
         if row[0] == -1:
             cursor.deleteRow()
 
-arcpy.AddGeometryAttributes_management(EFpoints_Rhone_clean, Geometry_Properties='POINT_X_Y_Z_M')
-arcpy.AlterField_management(EFpoints_Rhone_clean, field='POINT_X',
-                            new_field_name='Longitude_snapped', new_field_alias='Longitude_snapped')
-arcpy.AlterField_management(EFpoints_Rhone_clean, field='POINT_Y',
-                            new_field_name='Latitude_snapped', new_field_alias='Latitude_snapped')
+arcpy.management.CalculateGeometryAttributes(in_features=EFpoints_Rhone_clean,
+                                             geometry_property=[['Longitude_snapped', 'POINT_X'],
+                                                                ['Latitude_snapped', 'POINT_Y']])
 
-arcpy.SpatialJoin_analysis(EFpoints_Rhone_clean, hydroriv, EFpoints_Rhone_cleanjoin,
+arcpy.analysis.SpatialJoin(EFpoints_Rhone_clean, hydroriv, EFpoints_Rhone_cleanjoin,
                            join_operation='JOIN_ONE_TO_ONE', join_type="KEEP_COMMON",
                            match_option='CLOSEST_GEODESIC', search_radius=0.005,
                            distance_field_name='EFpoint_hydroriv_distance')
 
-# arcpy.CopyRows_management(EFpoints_Rhone_clean,
-#                           Path(resdir,
+# arcpy.management.CopyRows(EFpoints_Rhone_clean,
+#                           os.path.join(resdir,
 #                                        'Rhone_EFpoints_clean_{}.csv'.format(date.today().strftime('%Y%m%d'))))
 
 #---------------------------------- FORMATTING VICTORIA SITES  --------------------------------------------------------
 #Add raw coordinates to sites
-arcpy.AddGeometryAttributes_management(EFpoints_Victoria_raw, Geometry_Properties='POINT_X_Y_Z_M')
-[f.name for f in arcpy.ListFields(EFpoints_Victoria_raw)]
-arcpy.AlterField_management(EFpoints_Victoria_raw, field='POINT_X', new_field_name='Longitude_original', new_field_alias='Longitude_original')
-arcpy.AlterField_management(EFpoints_Victoria_raw, field='POINT_Y', new_field_name='Latitude_original', new_field_alias='Latitude_original')
+arcpy.management.CalculateGeometryAttributes(in_features=EFpoints_Victoria_raw,
+                                             geometry_property=[['Longitude_original', 'POINT_X'],
+                                                                ['Latitude_original', 'POINT_Y']])
 
 #The raw values are what's included in the Master Data Table
-arcpy.CopyRows_management(EFpoints_Victoria_raw,
-                          Path(resdir,
+arcpy.management.CopyRows(EFpoints_Victoria_raw,
+                          os.path.join(resdir,
                                        'Victoria_EFpoints_raw_{}.csv'.format(date.today().strftime('%Y%m%d'))))
 
 #Snap to river network
 snapenv = [[hydroriv, 'EDGE', '1000 meters']]
-arcpy.CopyFeatures_management(EFpoints_Victoria_raw, EFpoints_Victoria_snap)
-arcpy.Snap_edit(EFpoints_Victoria_snap, snapenv)
+arcpy.management.CopyFeatures(EFpoints_Victoria_raw, EFpoints_Victoria_snap)
+arcpy.edit.Snap(EFpoints_Victoria_snap, snapenv)
 
 #Record of edits (UID: action code, comment)
-arcpy.CopyFeatures_management(EFpoints_Victoria_snap, EFpoints_Victoria_edit)
+if not arcpy.Exists(EFpoints_Victoria_edit):
+    arcpy.management.CopyFeatures(EFpoints_Victoria_snap, EFpoints_Victoria_edit)
 
 editdict_victoria = {
     3: [1, 'Move to correct tributary'],
@@ -226,8 +226,8 @@ editdict_victoria = {
     120: [-1, 'Tributary is not represented in HydroRIVERS']
 }
 
-arcpy.AddField_management(EFpoints_Victoria_edit, 'Point_shift_mathis', 'SHORT')
-arcpy.AddField_management(EFpoints_Victoria_edit, 'Comment_mathis', 'TEXT')
+arcpy.management.AddField(EFpoints_Victoria_edit, 'Point_shift_mathis', 'SHORT')
+arcpy.management.AddField(EFpoints_Victoria_edit, 'Comment_mathis', 'TEXT')
 
 with arcpy.da.UpdateCursor(EFpoints_Victoria_edit, ['UID_Mathis', 'Point_shift_mathis', 'Comment_mathis']) as cursor:
     for row in cursor:
@@ -239,29 +239,26 @@ with arcpy.da.UpdateCursor(EFpoints_Victoria_edit, ['UID_Mathis', 'Point_shift_m
         cursor.updateRow(row)
 
 #Delete sites, clean fields
-arcpy.CopyFeatures_management(EFpoints_Victoria_edit, EFpoints_Victoria_clean)
+arcpy.management.CopyFeatures(EFpoints_Victoria_edit, EFpoints_Victoria_clean)
 with arcpy.da.UpdateCursor(EFpoints_Victoria_clean, ['Point_shift_mathis']) as cursor:
     for row in cursor:
         if row[0] == -1:
             cursor.deleteRow()
 
-arcpy.AddGeometryAttributes_management(EFpoints_Victoria_clean, Geometry_Properties='POINT_X_Y_Z_M')
-arcpy.AlterField_management(EFpoints_Victoria_clean, field='POINT_X',
-                            new_field_name='Longitude_snapped', new_field_alias='Longitude_snapped')
-arcpy.AlterField_management(EFpoints_Victoria_clean, field='POINT_Y',
-                            new_field_name='Latitude_snapped', new_field_alias='Latitude_snapped')
-
-arcpy.SpatialJoin_analysis(EFpoints_Victoria_clean, hydroriv, EFpoints_Victoria_cleanjoin,
+arcpy.management.CalculateGeometryAttributes(in_features=EFpoints_Victoria_clean,
+                                             geometry_property=[['Longitude_snappedl', 'POINT_X'],
+                                                                ['Latitude_snapped', 'POINT_Y']])
+arcpy.analysis.SpatialJoin(EFpoints_Victoria_clean, hydroriv, EFpoints_Victoria_cleanjoin,
                            join_operation='JOIN_ONE_TO_ONE', join_type="KEEP_COMMON",
                            match_option='CLOSEST_GEODESIC', search_radius=0.005,
                            distance_field_name='EFpoint_hydroriv_distance')
 
-arcpy.CopyRows_management(EFpoints_Victoria_clean,
-                          Path(resdir,
+arcpy.management.CopyRows(EFpoints_Victoria_clean,
+                          os.path.join(resdir,
                                        'Victoria_EFpoints_clean_{}.csv'.format(date.today().strftime('%Y%m%d'))))
 
 
-#Downloaded stream condition index from
+# Downloaded stream condition index from
 """
 Title 	Index of Stream Condition
 URL https://datashare.maps.vic.gov.au/search?md=48d03335-0ee2-5107-838a-630808cf0f09
@@ -275,50 +272,50 @@ Point of contact metadata Department of Environment, Land, Water & Planning Rwmp
  Info Level 10 / 8 Nicholson St, East Melbourne, Vic, 3002, Australia +61 3 9637 9010,+61 3 9637 8489 """
 
 
-#---------------------------------- FORMAT MEXICAN SITES ---------------------------------------------------------------
-#Link EF tab from Salinas-Rodriguez et al. 2021 to basin shapefile
+# ---------------------------------- FORMAT MEXICAN SITES ---------------------------------------------------------------
+# Link EF tab from Salinas-Rodriguez et al. 2021 to basin shapefile
 if not arcpy.Exists(EFbasins_Mexico):
-    arcpy.MakeFeatureLayer_management(basins_Mexico, 'basins_Mexico_layer')
-    arcpy.AddJoin_management('basins_Mexico_layer', in_field = 'id_cuenca',
+    arcpy.management.MakeFeatureLayer(basins_Mexico, 'basins_Mexico_layer')
+    arcpy.management.AddJoin('basins_Mexico_layer', in_field = 'id_cuenca',
                             join_table = EFtab_Mexico, join_field = 'E_flow_Location_Name_No_', join_type='KEEP_COMMON')
-    arcpy.CopyFeatures_management('basins_Mexico_layer', EFbasins_Mexico)
-    arcpy.Project_management(in_dataset=EFbasins_Mexico,
+    arcpy.management.CopyFeatures('basins_Mexico_layer', EFbasins_Mexico)
+    arcpy.management.Project(in_dataset=EFbasins_Mexico,
                              out_dataset=EFbasins_Mexico_wgs84, out_coor_system=4326)
 
 #Compute basin areas
-arcpy.AddGeometryAttributes_management(EFbasins_Mexico_wgs84,
-                                       Geometry_Properties='AREA_GEODESIC',
-                                       Area_Unit='SQUARE_KILOMETERS')
+arcpy.management.CalculateGeometryAttributes(in_features=EFbasins_Mexico_wgs84,
+                                             geometry_property=['AREA_GEO', 'AREA_GEODESIC'],
+                                             area_unit='SQUARE_KILOMETERS')
 
-#Convert EF basins to pour points to link with RiverATLAS (Mexican basins do not overlaps with HydroBASINS)
+# Convert EF basins to pour points to link with RiverATLAS (Mexican basins do not overlaps with HydroBASINS)
 basin_maxarea = ZonalStatistics(in_zone_data=EFbasins_Mexico_wgs84,
                                 zone_field='E_flow_Location_Name_No_',
                                 in_value_raster=up_area,
                                 statistics_type='MAXIMUM',
                                 ignore_nodata='DATA')
-basin_prpt1 = Con(up_area==basin_maxarea, basin_maxarea)
-arcpy.RasterToPoint_conversion(basin_prpt1, EFbasins_ptraw_Mexico, raster_field='Value')
-arcpy.SpatialJoin_analysis(EFbasins_ptraw_Mexico, EFbasins_Mexico_wgs84, EFbasins_ptraw_attri_Mexico,
+basin_prpt1 = Con(up_area == basin_maxarea, basin_maxarea)
+arcpy.conversion.RasterToPoint(basin_prpt1, EFbasins_ptraw_Mexico, raster_field='Value')
+arcpy.analysis.SpatialJoin(EFbasins_ptraw_Mexico, EFbasins_Mexico_wgs84, EFbasins_ptraw_attri_Mexico,
                            join_operation='JOIN_ONE_TO_ONE',
                            join_type='KEEP_COMMON',
                            match_option='WITHIN')
 
-#Join EF points to nearest river reach in RiverAtlas
+# Join EF points to nearest river reach in RiverAtlas
 if not arcpy.Exists(EFbasins_ptjointedit_Mexico):
     print('Join Mexican EF points to nearest river reach in RiverAtlas')
-    arcpy.SpatialJoin_analysis(EFbasins_ptraw_attri_Mexico, hydroriv, EFbasins_ptjointedit_Mexico,
+    arcpy.analysis.SpatialJoin(EFbasins_ptraw_attri_Mexico, hydroriv, EFbasins_ptjointedit_Mexico,
                                join_operation='JOIN_ONE_TO_ONE', join_type="KEEP_COMMON",
                                match_option='CLOSEST_GEODESIC', search_radius=0.01,
                                distance_field_name='EFpoint_hydroriv_distance')
 
-    arcpy.AddField_management(EFbasins_ptjointedit_Mexico, field_name='DApercdiff', field_type='FLOAT')
+    arcpy.management.AddField(EFbasins_ptjointedit_Mexico, field_name='DApercdiff', field_type='FLOAT')
     with arcpy.da.UpdateCursor(EFbasins_ptjointedit_Mexico, ['AREA_GEO', 'UPLAND_SKM', 'DApercdiff']) as cursor:
         for row in cursor:
             if int(row[0]) > int(0):
                 row[2] = (float(row[1]) - float(row[0]))/float(row[0])
             cursor.updateRow(row)
 
-#Exclusions here are only for the sake of comparing with RiverATLAS
+# Exclusions here are only for the sake of comparing with RiverATLAS
 editdict_mexico = {
     1227: [-1, 'Mexican e-flow basin does not match hydrological network'],
     1235: [1, 'Move to mainstem'],
@@ -390,32 +387,33 @@ editdict_mexico = {
     3081: [-1, 'Wrongly placed. Coastal basin encompassing other tributaries']
 }
 
-arcpy.AddField_management(EFbasins_ptjointedit_Mexico, 'Point_shift_mathis', 'SHORT')
-arcpy.AddField_management(EFbasins_ptjointedit_Mexico, 'Comment_mathis', 'TEXT')
+arcpy.management.AddField(EFbasins_ptjointedit_Mexico, 'Point_shift_mathis', 'SHORT')
+arcpy.management.AddField(EFbasins_ptjointedit_Mexico, 'Comment_mathis', 'TEXT')
 
-with arcpy.da.UpdateCursor(EFpoints1_joinedit, ['id_cuenca', 'Point_shift_mathis', 'Comment_mathis', 'OBJECTID']) as cursor:
+with arcpy.da.UpdateCursor(EFpoints1_joinedit,
+                           ['id_cuenca', 'Point_shift_mathis', 'Comment_mathis', 'OBJECTID']) as cursor:
     for row in cursor:
         if row[0] in editdict_mexico:
-            row[1] = editdict_mexico[row[0]][0] #Point_shift_mathis = first entry in dictionary
-            row[2] = editdict_mexico[row[0]][1] #Comment_mathis = second entry in dictionary
+            row[1] = editdict_mexico[row[0]][0] # Point_shift_mathis = first entry in dictionary
+            row[2] = editdict_mexico[row[0]][1] # Comment_mathis = second entry in dictionary
         else:
             row[1] = 0
         cursor.updateRow(row)
 
-#---------------------------------- FORMATTING OF SITES FROM CS / FIRST BATCH --------------------------------------------------
-#Copy CS points
+# ---------------------------------- FORMATTING OF SITES FROM CS / FIRST BATCH -----------------------------------------
+# Copy CS points
 if not arcpy.Exists(EFpoints1_cscopy):
-    arcpy.CopyFeatures_management(EFpoints_cs1, EFpoints1_cscopy)
+    arcpy.management.CopyFeatures(EFpoints_cs1, EFpoints1_cscopy)
 
-#Join EF points to nearest river reach in RiverAtlas
+# Join EF points to nearest river reach in RiverAtlas
 if not arcpy.Exists(EFpoints1_joinedit):
     print('Join EF points to nearest river reach in RiverAtlas')
-    arcpy.SpatialJoin_analysis(EFpoints1_cscopy, hydroriv, EFpoints1_joinedit,
+    arcpy.analysis.SpatialJoin(EFpoints1_cscopy, hydroriv, EFpoints1_joinedit,
                                join_operation='JOIN_ONE_TO_ONE', join_type="KEEP_COMMON",
                                match_option='CLOSEST_GEODESIC', search_radius=0.0005,
                                distance_field_name='EFpoint_hydroriv_distance')
 
-    arcpy.AddField_management(EFpoints1_joinedit, field_name='DApercdiff', field_type='FLOAT')
+    arcpy.management.AddField(EFpoints1_joinedit, field_name='DApercdiff', field_type='FLOAT')
     with arcpy.da.UpdateCursor(EFpoints1_joinedit, ['Upstream_C', 'UPLAND_SKM', 'DApercdiff']) as cursor:
         for row in cursor:
             if re.match('^[0-9]+$', string = row[0]):
@@ -423,8 +421,8 @@ if not arcpy.Exists(EFpoints1_joinedit):
                     row[2] = (float(row[1]) - float(row[0]))/float(row[0])
             cursor.updateRow(row)
 
-    arcpy.AddField_management(EFpoints1_joinedit, field_name='totalAF', field_type='FLOAT')
-    arcpy.AddField_management(EFpoints1_joinedit, field_name='MAFpercdiff', field_type='FLOAT')
+    arcpy.management.AddField(EFpoints1_joinedit, field_name='totalAF', field_type='FLOAT')
+    arcpy.management.AddField(EFpoints1_joinedit, field_name='MAFpercdiff', field_type='FLOAT')
     with arcpy.da.UpdateCursor(EFpoints1_joinedit, ['Mean_Annua', 'DIS_AV_CMS', 'MAFpercdiff', 'totalAF']) as cursor:
         for row in cursor:
             if re.match('^[0-9]+\.*[0-9]*', string = row[0]):
@@ -433,8 +431,8 @@ if not arcpy.Exists(EFpoints1_joinedit):
                     row[3] = (31.557600 * float(row[1]))
             cursor.updateRow(row)
 
-#Manual editing
-#no, what is done (delete: -1, moved: 1), comment, OBJECTID
+# Manual editing
+# no, what is done (delete: -1, moved: 1), comment, OBJECTID
 editdict = {
     0: [-1, 'artefact without data. It seems to correspond to Macalister/Below Lake Glenmaggie though'],
     1: [1, 'moved to intersect the nearest reach on the Balonne river'],
@@ -460,7 +458,8 @@ editdict = {
     43: [1, 'Moved to Rizana instead of Badasevica'],
     51: [0, 'Upstream catchment area and MAR in comments do not match either HydroRivers or site no 54'],
     65: [1, 'Move closer to HydroRIVERS'],
-    70: [1, 'Moved 1 km downstream so that it is closest to the right reach in HydroRivers. Odd contrats in MAR with downstream site.'],
+    70: [1, 'Moved 1 km downstream so that it is closest to the right reach in HydroRivers. Odd contrats in MAR '
+            'with downstream site.'],
     73: [1, 'Moved downstream of Koekedou dam at Ceres based on site name and discharge'],
     74: [1, 'Moved downstream of Koekedou dam at Ceres based on site name and discharge'],
     97: [1, 'Moved to mainstem'],
@@ -473,15 +472,15 @@ editdict = {
     421: [-1, 'Point created by CS in Senegal']
 }
 
-arcpy.AddField_management(EFpoints1_joinedit, 'Point_shift_mathis', 'SHORT')
-arcpy.AddField_management(EFpoints1_joinedit, 'Comment_mathis', 'TEXT')
+arcpy.management.AddField(EFpoints1_joinedit, 'Point_shift_mathis', 'SHORT')
+arcpy.management.AddField(EFpoints1_joinedit, 'Comment_mathis', 'TEXT')
 
 with arcpy.da.UpdateCursor(EFpoints1_joinedit, ['no', 'Point_shift_mathis', 'Comment_mathis', 'OBJECTID']) as cursor:
     for row in cursor:
         if row[0] in editdict:
             if len(editdict[row[0]]) == 2:
-                row[1] = editdict[row[0]][0] #Point_shift_mathis = first entry in dictionary
-                row[2] = editdict[row[0]][1] #Comment_mathis = second entry in dictionary
+                row[1] = editdict[row[0]][0] # Point_shift_mathis = first entry in dictionary
+                row[2] = editdict[row[0]][1] # Comment_mathis = second entry in dictionary
             else:
                 if row[3] in [25, 26]:
                     row[1] = -1
@@ -490,21 +489,21 @@ with arcpy.da.UpdateCursor(EFpoints1_joinedit, ['no', 'Point_shift_mathis', 'Com
             row[1] = 0
         cursor.updateRow(row)
 
-#---------------------------------- FORMATTING OF SITES FROM CS / SECOND BATCH --------------------------------------------------
-#Copy CS points
+# ---------------------------------- FORMATTING OF SITES FROM CS / SECOND BATCH --------------------------------------------------
+# Copy CS points
 if not arcpy.Exists(EFpoints2_cscopy):
-    arcpy.Merge_management(EFpoints_cs2, EFpoints2_cscopy)
+    arcpy.management.Merge(EFpoints_cs2, EFpoints2_cscopy)
 
-#Join EF points to nearest river reach in RiverAtlas
+# Join EF points to nearest river reach in RiverAtlas
 if not arcpy.Exists(EFpoints2_joinedit):
     print('Join EF points to nearest river reach in RiverAtlas')
-    arcpy.SpatialJoin_analysis(EFpoints2_cscopy, hydroriv, EFpoints2_joinedit,
+    arcpy.analysis.SpatialJoin(EFpoints2_cscopy, hydroriv, EFpoints2_joinedit,
                                join_operation='JOIN_ONE_TO_ONE', join_type="KEEP_COMMON",
                                match_option='CLOSEST_GEODESIC', search_radius=0.0005,
                                distance_field_name='EFpoint_hydroriv_distance')
 
-    arcpy.AddField_management(EFpoints2_joinedit, field_name='totalAF', field_type='FLOAT')
-    arcpy.AddField_management(EFpoints2_joinedit, field_name='MAFpercdiff', field_type='FLOAT')
+    arcpy.management.AddField(EFpoints2_joinedit, field_name='totalAF', field_type='FLOAT')
+    arcpy.management.AddField(EFpoints2_joinedit, field_name='MAFpercdiff', field_type='FLOAT')
     with arcpy.da.UpdateCursor(EFpoints2_joinedit, ['Natural_Na', 'DIS_AV_CMS', 'MAFpercdiff', 'totalAF']) as cursor:
         for row in cursor:
             if row[0] is not None:
@@ -513,8 +512,8 @@ if not arcpy.Exists(EFpoints2_joinedit):
                     row[3] = (31.557600 * float(row[1]))
             cursor.updateRow(row)
 
-#Manual editing
-#E_flow_Loc, what is done (delete: -1, moved: 1), comment
+# Manual editing
+# E_flow_Loc, what is done (delete: -1, moved: 1), comment
 editdict2= {
     'Kaudiyala': [1, 'Moved to mainstem to overlap with HydroRIVERS. Site was correctly located'],
     'IFR P2': [1, 'Moved to mainstem'],
@@ -543,73 +542,66 @@ editdict2= {
     'EWR KG1': [1, 'On wrong river. Moved by 100s of kms']
 }
 
-arcpy.AddField_management(EFpoints2_joinedit, 'Point_shift_mathis', 'SHORT')
-arcpy.AddField_management(EFpoints2_joinedit, 'Comment_mathis', 'TEXT')
+arcpy.management.AddField(EFpoints2_joinedit, 'Point_shift_mathis', 'SHORT')
+arcpy.management.AddField(EFpoints2_joinedit, 'Comment_mathis', 'TEXT')
 
-with arcpy.da.UpdateCursor(EFpoints2_joinedit, ['E_flow_Loc', 'Point_shift_mathis', 'Comment_mathis', 'River_']) as cursor:
+with arcpy.da.UpdateCursor(EFpoints2_joinedit,
+                           ['E_flow_Loc', 'Point_shift_mathis', 'Comment_mathis', 'River_']) as cursor:
     for row in cursor:
         if row[0] in editdict2:
             if row[0] == 'EWR S1' and row[3] == 'Sabie':
                 row[1] = row[0]
-            row[1] = editdict2[row[0]][0] #Point_shift_mathis = first entry in dictionary
+            row[1] = editdict2[row[0]][0] # Point_shift_mathis = first entry in dictionary
             row[2] = editdict2[row[0]][1] #Comment_mathis = second entry in dictionary
         else:
             row[1] = 0
         cursor.updateRow(row)
 
-#---------------------------------- FORMATTING OF SITES FROM OCT 28th 2021 DATABASE FREEZE -------------------------------
+# ---------------------------------- FORMATTING OF SITES FROM OCT 28th 2021 DATABASE FREEZE ----------------------------
 ########## FINISH ADAPTING TO PYTHON ####################
-
-EFpoints_1028freeze = Path(resdir, 'Master_20211104_parzered_notIWMI.csv')
-
-#Master database at October 28th freeze
 #Formatting of the database from the original format
-# db3 = pd.read_excel(Path(datdir, "GEFIS_test_data/Master Data Table_20211104.xlsx"), sheet_name = 'Data')
-# db3 <- as.data.table(
-#   readxl::read_xlsx(
-#     path = file.path(datdir, ),
-#     sheet = 'Data')
-# )
-#
-# #Standardize "Original" coordinates
-# setnames(db3, old=c('Latitude', 'Longitude'),
-#          new=c('Latitude_original', 'Longitude_original'))
-# db3[, `:=`(
-#   latitude_parzer = parse_lat(Latitude_original),
-#   longitude_parzer = parse_lon(Longitude_original))
-# ]
-#
-# check_lat <- db3[, .(Latitude_original, latitude_parzer)]
-# check_lon <- db3[, .(Longitude_original, longitude_parzer)]
-#
-# fwrite(db3[is.na(no),],
-#        file.path(resdir, 'Master_20211104_parzered_notIWMI.csv'))
-##################################################
+db3 = pd.read_excel(EFpoints_1028freeze, sheet_name = 'Data').\
+    rename(columns={'Latitude' : 'Latitude_original', 'Longitude' : 'Longitude_original'}) #Standardize "Original" coordinates
+db3_notIWMI = db3.iloc[207:,:].copy()     #remove EFA from the original IWMI database. Treated by Chandima
 
-#Create points for those with valid coordinates (see merge_dbversions.r)
-arcpy.MakeXYEventLayer_management(table = EFpoints_1028freeze,
+#Format latitude and longitude
+db3_notIWMI.loc[db3_notIWMI['Latitude_original'].notnull(), 'Latitude_parzer'] = db3_notIWMI.loc[
+    db3_notIWMI['Latitude_original'].notnull(), 'Latitude_original'].\
+    astype(str).\
+    apply(parse)
+
+db3_notIWMI.loc[db3_notIWMI['Longitude_original'].notnull(),'Longitude_parzer'] = db3_notIWMI.loc[
+    db3_notIWMI['Longitude_original'].notnull()]['Longitude_original'].\
+    astype(str).\
+    apply(parse)
+
+#Write it out, only including
+db3_notIWMI.to_csv(EFpoints_1028freeze_parzered)
+
+#Create points for those with valid coordinates
+arcpy.management.MakeXYEventLayer(table = EFpoints_1028freeze_parzered,
                                   in_x_field = 'longitude_parzer',
                                   in_y_field = 'latitude_parzer',
                                   out_layer = 'ef1028lyr',
                                   spatial_reference= 4326,
                                   in_z_field = None)
-arcpy.CopyFeatures_management('ef1028lyr', EFpoints_1028notIWMI_raw)
+arcpy.management.CopyFeatures('ef1028lyr', EFpoints_1028notIWMI_raw)
 
-#Join EF points to nearest river reach in RiverAtlas
+# Join EF points to nearest river reach in RiverAtlas
 if not arcpy.Exists(EFpoints_1028notIWMI_joinedit):
     print('Join EF points to nearest river reach in RiverAtlas')
-    arcpy.SpatialJoin_analysis(EFpoints_1028notIWMI_raw, hydroriv, EFpoints_1028notIWMI_joinedit,
+    arcpy.analysis.SpatialJoin(EFpoints_1028notIWMI_raw, hydroriv, EFpoints_1028notIWMI_joinedit,
                                join_operation='JOIN_ONE_TO_ONE', join_type="KEEP_COMMON",
                                match_option='CLOSEST_GEODESIC', search_radius=0.0005,
                                distance_field_name='EFpoint_hydroriv_distance')
 
-    arcpy.AddField_management(EFpoints_1028notIWMI_joinedit, field_name='totalAF', field_type='FLOAT')
-    arcpy.AddField_management(EFpoints_1028notIWMI_joinedit, field_name='MAFpercdiff', field_type='FLOAT')
+    arcpy.management.AddField(EFpoints_1028notIWMI_joinedit, field_name='totalAF', field_type='FLOAT')
+    arcpy.management.AddField(EFpoints_1028notIWMI_joinedit, field_name='MAFpercdiff', field_type='FLOAT')
     with arcpy.da.UpdateCursor(EFpoints_1028notIWMI_joinedit, ['Natural_Naturalised_Mean_Annual_Runoff_at_E_flow_Location',
                                                                'mar_unit', 'DIS_AV_CMS', 'MAFpercdiff',
                                                                'totalAF']) as cursor:
         for row in cursor:
-            #if re.match('^[0-9]+\.*[0-9]*', string = row[0]):
+            # if re.match('^[0-9]+\.*[0-9]*', string = row[0]):
             if row[0] is not None:
                 if float(row[0]) > 0:
                     if row[1] == '10^6m3 y-1':
@@ -620,8 +612,8 @@ if not arcpy.Exists(EFpoints_1028notIWMI_joinedit):
                         row[4] = row[2]
                     cursor.updateRow(row)
 
-#Manual editing
-#no, what is done (delete: -1, moved: 1), comment, OBJECTID
+# Manual editing
+# EFUID, what is done (delete: -1, moved: 1), comment, OBJECTID
 editdict = {
     418: [1, 'Coordinates from report are misleading. Map shows site at Jebel Aulia upstream of Khartoum as mentioned'
              'in table, but table "site" says Malakal which is > 500 km upstream. Moved to just upstream of jebel Aulia. '
@@ -656,75 +648,77 @@ editdict = {
 for id in list(range(208, 413))+[439, 440, 441]:
     editdict[id] = [-1, None]
 
-arcpy.AddField_management(EFpoints_1028notIWMI_joinedit, 'Point_shift_mathis', 'SHORT')
-arcpy.AddField_management(EFpoints_1028notIWMI_joinedit, 'Comment_mathis', 'TEXT')
+arcpy.management.AddField(EFpoints_1028notIWMI_joinedit, 'Point_shift_mathis', 'SHORT')
+arcpy.management.AddField(EFpoints_1028notIWMI_joinedit, 'Comment_mathis', 'TEXT')
 
 with arcpy.da.UpdateCursor(EFpoints_1028notIWMI_joinedit, ['EFUID', 'Point_shift_mathis', 'Comment_mathis', 'HYRIV_ID']) as cursor:
     for row in cursor:
         if row[0] in editdict:
-            row[1] = editdict[row[0]][0] #Point_shift_mathis = first entry in dictionary
-            row[2] = editdict[row[0]][1] #Comment_mathis = second entry in dictionary
+            row[1] = editdict[row[0]][0] # Point_shift_mathis = first entry in dictionary
+            row[2] = editdict[row[0]][1] # Comment_mathis = second entry in dictionary
             if len(editdict[row[0]]) == 3:
                 row[3] = None
         else:
             row[1] = 0
         cursor.updateRow(row)
 
-arcpy.DeleteField_management(EFpoints_1028notIWMI_joinedit, 'Comments') #Cannot merge to others because special character, so delete field
+arcpy.management.DeleteField(EFpoints_1028notIWMI_joinedit, 'Comments') # Cannot merge to others because special character, so delete field
 
-#---------------------------------- MERGE AND FORMAT ALL SITES -----------------------------------------------------------
-#Clean and merge datasets
-arcpy.Merge_management([EFpoints1_joinedit, EFpoints2_joinedit, EFpoints_1028notIWMI_joinedit], EFpoints_1028_merge)
+# ---------------------------------- MERGE AND FORMAT ALL SITES -----------------------------------------------------------
+# Clean and merge datasets
+arcpy.management.Merge([EFpoints1_joinedit, EFpoints2_joinedit, EFpoints_1028notIWMI_joinedit], EFpoints_1028_merge)
 
-#Delete sites, clean fields
-arcpy.CopyFeatures_management(EFpoints_1028_merge, EFpoints_1028_clean)
+# Delete sites, clean fields
+arcpy.management.CopyFeatures(EFpoints_1028_merge, EFpoints_1028_clean)
 with arcpy.da.UpdateCursor(EFpoints_1028_clean, ['Point_shift_mathis']) as cursor:
     for row in cursor:
         if row[0] == -1:
             cursor.deleteRow()
 
-#Delete duplicates
-arcpy.DeleteIdentical_management(EFpoints_1028_clean, ['no', 'HYRIV_ID', 'Id', 'EFUID'])
+# Delete duplicates
+arcpy.management.DeleteIdentical(EFpoints_1028_clean, ['no', 'HYRIV_ID', 'Id', 'EFUID'])
 
-#Delete useless fields
+# Delete useless fields
 for f1 in arcpy.ListFields(EFpoints_1028_clean):
     if f1.name not in ['OBJECTID_1', 'Shape', 'no', 'Id', 'EFUID', 'Country', 'Point_shift_mathis', 'Comment_mathis']:
-        arcpy.DeleteField_management(EFpoints_1028_clean, f1.name)
+        arcpy.management.DeleteField(EFpoints_1028_clean, f1.name)
 
-#Create new points for those that did not have coordinates
+# Create new points for those that did not have coordinates
 newpts_1028 = {
     397: arcpy.Point(-9.694778, 10.614154),
     398: arcpy.Point(-8.3025, 12.0062),
     399: arcpy.Point(-7.5544, 12.8683),
-    400: arcpy.Point(-4.5164, 13.8097), #Djenné Dam near Soala
-    401: arcpy.Point(-5.3548, 13.9564), #Ké-Macina
+    400: arcpy.Point(-4.5164, 13.8097), # Djenné Dam near Soala
+    401: arcpy.Point(-5.3548, 13.9564), # Ké-Macina
     402: arcpy.Point(-4.1995, 14.5244),
-    403: arcpy.Point(29.2433, -9.1436), #No indication of actual location in database. Decided based on MAR, downstream of planned hydrpower at  Kundabwika Falls and just upstream of confluence with outflow from Lake Mweru Wantipa
-    423: arcpy.Point(35.019201, -1.545872), #Purungat Bridge. Not
-    424: arcpy.Point(35.0842, -1.4229), #Chemomul Bridge slightly upstream of Bomet
-    425: arcpy.Point(35.3519, -0.7754), #Located near Rekero Camp tourist lodge, just downstream of confluence of Talek and Lemek Subcatchments
-    426: arcpy.Point(35.4373, -0.8988), #Kapkimolwa Bridge
-    442: arcpy.Point(84.6973, 27.5611), #Downstream of the confluence of East Rapti and Lothar rivers
-    443: arcpy.Point(84.4884, 27.5781), #Downstream of the confluence of the East Rapti River and Khageri khola; Entry to Royal Chitwan National Park (a bit downstream to match network)
-    444: arcpy.Point(84.1676, 27.5572) #Upstream of confluence of Narayani and East Rapti rivers; on East Rapti
+    403: arcpy.Point(29.2433, -9.1436), # No indication of actual location in database. Decided based on MAR, downstream of planned hydrpower at  Kundabwika Falls and just upstream of confluence with outflow from Lake Mweru Wantipa
+    423: arcpy.Point(35.019201, -1.545872), # Purungat Bridge. Not
+    424: arcpy.Point(35.0842, -1.4229), # Chemomul Bridge slightly upstream of Bomet
+    425: arcpy.Point(35.3519, -0.7754), # Located near Rekero Camp tourist lodge, just downstream of confluence of Talek and Lemek Subcatchments
+    426: arcpy.Point(35.4373, -0.8988), # Kapkimolwa Bridge
+    442: arcpy.Point(84.6973, 27.5611), # Downstream of the confluence of East Rapti and Lothar rivers
+    443: arcpy.Point(84.4884, 27.5781), # Downstream of the confluence of the East Rapti River and Khageri khola; Entry to Royal Chitwan National Park (a bit downstream to match network)
+    444: arcpy.Point(84.1676, 27.5572) # Upstream of confluence of Narayani and East Rapti rivers; on East Rapti
 }
 
-# Open an InsertCursor and insert the new geometry
+#  Open an InsertCursor and insert the new geometry
 with arcpy.da.InsertCursor(EFpoints_1028_clean, ['EFUID', 'SHAPE@']) as cursor:
     for k in newpts_1028:
         cursor.insertRow((k, newpts_1028[k]))
 with arcpy.da.InsertCursor(EFpoints_1028_clean, ['no', 'SHAPE@']) as cursor:
     cursor.insertRow((40, arcpy.Point(28.1006, -29.4591)))
 
-#Snap to river network
+# Snap to river network
 snapenv = [[hydroriv, 'EDGE', '1000 meters']]
-arcpy.Snap_edit(EFpoints_1028_clean, snapenv)
+arcpy.edit.Snap(EFpoints_1028_clean, snapenv)
 
-#Add coordinates
-arcpy.AddGeometryAttributes_management(EFpoints_1028_clean, Geometry_Properties='POINT_X_Y_Z_M')
+# Add coordinates
+arcpy.management.CalculateGeometryAttributes(in_features=EFpoints_1028_clean,
+                                             geometry_property=[['POINT_X', 'POINT_X'],
+                                                                ['POINT_X', 'POINT_Y']])
 
-#Get formatted GRDC stations from global non-perennial rivers project (Messager et al. 2021) - doesn't work, did it manually
-gaugesp_out = Path(process_gdb, 'GRDCstations_predbasic800')
+# Get formatted GRDC stations from global non-perennial rivers project (Messager et al. 2021) - doesn't work, did it manually
+gaugesp_out = os.path.join(process_gdb, 'GRDCstations_predbasic800')
 if not arcpy.Exists(gaugesp_out):
-    arcpy.CopyFeatures_management(in_features = 'D://globalIRmap/results/GRDCstations_predbasic800.gpkg/GRDCstations_predbasic800',
+    arcpy.management.CopyFeatures(in_features = 'D://globalIRmap/results/GRDCstations_predbasic800.gpkg/GRDCstations_predbasic800',
                                   out_feature_class= Path(process_gdb, 'GRDCstations_predbasic800'))

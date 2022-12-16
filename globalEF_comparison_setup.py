@@ -1,6 +1,7 @@
 import arcpy
 from arcpy.sa import *
 from collections import defaultdict
+from datetime import date
 import math
 import numpy as np
 import os
@@ -16,12 +17,13 @@ arcpy.env.overwriteOutput = True
 
 #Get current root directory
 def get_root_fromsrcdir():
-    return(os.path.dirname(os.path.abspath(getsourcefile(lambda:0)))).split('\\src')[0]
+    return(os.path.dirname(os.path.abspath(
+        getsourcefile(lambda:0)))).split('\\src')[0]
 
 #Folder structure
 rootdir = get_root_fromsrcdir()
-datdir = Path(rootdir, 'data')
-resdir = Path(rootdir, 'results')
+datdir = os.path.join(rootdir, 'data')
+resdir = os.path.join(rootdir, 'results')
 
 #Utility functions
 #Get all files in a ArcGIS workspace (file or personal GDB)
@@ -29,7 +31,7 @@ def getwkspfiles(dir, repattern=None):
     arcpy.env.workspace = dir
     filenames_list = (arcpy.ListDatasets() or []) + (arcpy.ListTables() or [])  # Either LisDatsets or ListTables may return None so need to create empty list alternative
     if not repattern == None:
-        filenames_list = [Path(dir, filen)
+        filenames_list = [os.path.join(dir, filen)
                           for filen in filenames_list if re.search(repattern, filen)]
     return (filenames_list)
     arcpy.ClearEnvironment('workspace')
@@ -53,7 +55,7 @@ def getfilelist(dir, repattern=None, gdbf=True, nongdbf=True):
             if gdbf == True:
                 for (dirpath, dirnames, filenames) in os.walk(dir):
                     for in_dir in dirnames:
-                        fpath = Path(dirpath, in_dir)
+                        fpath = os.path.join(dirpath, in_dir)
                         if arcpy.Describe(fpath).dataType == 'Workspace':
                             print('{} is ArcGIS workspace...'.format(fpath))
                             filenames_list.extend(getwkspfiles(dir=fpath, repattern=repattern))
@@ -62,10 +64,10 @@ def getfilelist(dir, repattern=None, gdbf=True, nongdbf=True):
                 for (dirpath, dirnames, filenames) in os.walk(dir):
                     for file in filenames:
                         if repattern is None:
-                            filenames_list.append(Path(dirpath, file))
+                            filenames_list.append(os.path.join(dirpath, file))
                         else:
                             if re.search(repattern, file):
-                                filenames_list.append(Path(dirpath, file))
+                                filenames_list.append(os.path.join(dirpath, file))
         return (filenames_list)
 
     # Return geoprocessing specific errors
@@ -84,7 +86,7 @@ def pathcheckcreate(path, verbose=True):
 
     dirtocreate = []
     # Loop upstream through path to check which directories exist, adding those that don't exist to dirtocreate list
-    while not os.path.exists(Path(path)):
+    while not os.path.exists(os.path.join(path)):
         dirtocreate.append(os.path.split(path)[1])
         path = os.path.split(path)[0]
 
@@ -96,7 +98,7 @@ def pathcheckcreate(path, verbose=True):
         if os.path.splitext(dir)[1] == '.gdb':
             if verbose:
                 print('Create {}...'.format(dir))
-            arcpy.CreateFileGDB_management(out_folder_path=path,
+            arcpy.management.CreateFileGDB(out_folder_path=path,
                                            out_name=dir)
             break
 
@@ -104,7 +106,7 @@ def pathcheckcreate(path, verbose=True):
         elif os.path.splitext(dir)[1] == '':
             if verbose:
                 print('Create {}...'.format(dir))
-            path = Path(path, dir)
+            path = os.path.join(path, dir)
             os.mkdir(path)
 
 
@@ -140,7 +142,7 @@ def hydroresample(in_vardict, out_vardict, in_hydrotemplate, resampling_type='NE
             print('%.17f' % float(arcpy.env.cellSize))
 
             try:
-                arcpy.Resample_management(in_raster=in_vardict[var],
+                arcpy.management.Resample(in_raster=in_vardict[var],
                                           out_raster=outresample,
                                           cell_size=templatedesc.meanCellWidth,
                                           resampling_type=resampling_type)

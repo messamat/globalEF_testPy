@@ -1,19 +1,19 @@
 from globalEF_comparison_setup import *
 
 #Input variables
-process_gdb = Path(resdir, 'processing_outputs.gdb')
-EFpoints_QAQCed_riverjoin = Path(process_gdb, 'Master_20211104_QAQCed_riverjoin')
+process_gdb = os.path.join(resdir, 'processing_outputs.gdb')
+EFpoints_QAQCed_riverjoin = os.path.join(process_gdb, 'Master_20211104_QAQCed_riverjoin')
 
-gefis15s_gdb = Path(resdir, 'GEFIS_15s.gdb')
-EMCperc = Path(gefis15s_gdb, 'EMC_10Variable_2') #GEFIS layer of Vorosmarty human pressure index at 15 arc-sec
-EMC_GEFIS = Path(resdir, 'GEFIS_15s.gdb', 'EMC_10Variable_2')
-flowdir = Path(datdir, 'flow_dir_15s_global.gdb', 'flow_dir_15s')
-px_grid = Path(datdir, 'pixel_area_skm_15s.gdb', 'px_area_skm_15s') #HydroSHEDS pixel area grid
-up_grid = Path(datdir, 'upstream_area_skm_15s.gdb', 'up_area_skm_15s')
-wsgdb = Path(resdir, 'EFsites_watersheds.gdb')
+gefis15s_gdb = os.path.join(resdir, 'GEFIS_15s.gdb')
+EMCperc = os.path.join(gefis15s_gdb, 'EMC_10Variable_2') #GEFIS layer of Vorosmarty human pressure index at 15 arc-sec
+EMC_GEFIS = os.path.join(resdir, 'GEFIS_15s.gdb', 'EMC_10Variable_2')
+flowdir = os.path.join(datdir, 'flow_dir_15s_global.gdb', 'flow_dir_15s')
+px_grid = os.path.join(datdir, 'pixel_area_skm_15s.gdb', 'px_area_skm_15s') #HydroSHEDS pixel area grid
+up_grid = os.path.join(datdir, 'upstream_area_skm_15s.gdb', 'up_area_skm_15s')
+wsgdb = os.path.join(resdir, 'EFsites_watersheds.gdb')
 
 #Output variables
-gefisstats_gdb = Path(resdir, 'GEFIS_stats.gdb')
+gefisstats_gdb = os.path.join(resdir, 'GEFIS_stats.gdb')
 pathcheckcreate(gefisstats_gdb)
 
 def zonalstats_indiv(zonelist, valuelist, statistics, rastemplate = None, IDcol = None):
@@ -28,7 +28,7 @@ def zonalstats_indiv(zonelist, valuelist, statistics, rastemplate = None, IDcol 
                 outab = arcpy.da.TableToNumPyArray(
                     ZonalStatisticsAsTable(in_zone_data=in_zone, zone_field='Value',
                                            in_value_raster=in_value,
-                                           out_table= Path(gefisstats_gdb, 'temp_{0}_{1}'.format(
+                                           out_table= os.path.join(gefisstats_gdb, 'temp_{0}_{1}'.format(
                                                os.path.split(in_value)[1], statistics)),
                                            ignore_nodata= 'DATA', statistics_type=statistics),
                     statistics)
@@ -36,7 +36,7 @@ def zonalstats_indiv(zonelist, valuelist, statistics, rastemplate = None, IDcol 
                 outab = arcpy.da.TableToNumPyArray(
                     ZonalStatisticsAsTable(in_zone_data=in_zone, zone_field='Value',
                                            in_value_raster=in_value,
-                                           out_table= Path(gefisstats_gdb, 'temp_{0}_{1}'.format(
+                                           out_table= os.path.join(gefisstats_gdb, 'temp_{0}_{1}'.format(
                                                os.path.split(in_value)[1], statistics)),
                                            ignore_nodata= 'DATA', statistics_type='SUM'),
                     ['COUNT', 'SUM'])
@@ -55,15 +55,15 @@ def zonalstats_indiv(zonelist, valuelist, statistics, rastemplate = None, IDcol 
     return(out_pd)
 
 #----------------------------------------- Run flow accumulation -------------------------------------------------------
-sumdivras_list = [Path(gefis15s_gdb, p) for p in
+sumdivras_list = [os.path.join(gefis15s_gdb, p) for p in
                   ['MAR_A_v2', 'MAR_B_v2', 'MAR_C_v2', 'MAR_D_v2', 'MAR_EF_Probable_mcm',
                    'MAR_Natural_Annual_Runoff_v2']]
 #sumlist = getfilelist(gefis15s_gdb, 'EMCarea.*')
-meanlist = [Path(gefis15s_gdb, 'EMC_10Variable_2')]
+meanlist = [os.path.join(gefis15s_gdb, 'EMC_10Variable_2')]
 ratiolist = getfilelist(gefis15s_gdb, '.*_boolean$')
 
 for ras in sumdivras_list:
-    outacc = Path(gefisstats_gdb, '{}_acc'.format(os.path.split(ras)[1]))
+    outacc = os.path.join(gefisstats_gdb, '{}_acc'.format(os.path.split(ras)[1]))
     if not arcpy.Exists(outacc):
         print('Generating {}'.format(outacc))
         FlowAccumulation(in_flow_direction_raster=flowdir,
@@ -71,7 +71,7 @@ for ras in sumdivras_list:
                          data_type='FLOAT').save(outacc)
 
 for ras in meanlist+ratiolist:
-    outacc = Path(gefisstats_gdb, '{}_wacc'.format(os.path.split(ras)[1]))
+    outacc = os.path.join(gefisstats_gdb, '{}_wacc'.format(os.path.split(ras)[1]))
     if not arcpy.Exists(outacc):
         print('Generating {}'.format(outacc))
         FlowAccumulation(in_flow_direction_raster=flowdir,
@@ -79,16 +79,16 @@ for ras in meanlist+ratiolist:
                          data_type='FLOAT').save(outacc)
 
 #Compute mean Incident Biodiversity Threat index upstream
-marbool_wacc = Path(gefisstats_gdb, 'MAR_boolean_wacc')
-emcbool_wacc = Path(gefisstats_gdb, 'EMC_boolean_wacc')
-emcindex_wacc = Path(gefisstats_gdb, 'EMC_10Variable_2_wacc')
-emcindex_mean = Path(gefisstats_gdb, 'EMC_10Variable_2_mean')
+marbool_wacc = os.path.join(gefisstats_gdb, 'MAR_boolean_wacc')
+emcbool_wacc = os.path.join(gefisstats_gdb, 'EMC_boolean_wacc')
+emcindex_wacc = os.path.join(gefisstats_gdb, 'EMC_10Variable_2_wacc')
+emcindex_mean = os.path.join(gefisstats_gdb, 'EMC_10Variable_2_mean')
 if not arcpy.Exists(emcindex_mean):
     (Raster(emcindex_wacc)/Raster(emcbool_wacc)).save(emcindex_mean)
 
 #Compute percentage upstream masked out for MAR and EMC masks
-marbool_ratio = Path(gefisstats_gdb, 'MAR_boolean_ratio')
-emcbool_ratio = Path(gefisstats_gdb, 'EMC_boolean_ratio')
+marbool_ratio = os.path.join(gefisstats_gdb, 'MAR_boolean_ratio')
+emcbool_ratio = os.path.join(gefisstats_gdb, 'EMC_boolean_ratio')
 if not arcpy.Exists(marbool_ratio):
     (Raster(marbool_wacc)/Raster(up_grid)).save(marbool_ratio)
 if not arcpy.Exists(emcbool_ratio):
@@ -106,17 +106,17 @@ for ras in ['MAR_boolean_ratio', 'EMC_boolean_ratio', 'EMC_10Variable_2_mean','M
         in_path = ras
         ras = os.path.split(ras)[1]
     else:
-        in_path = Path(gefisstats_gdb, ras)
+        in_path = os.path.join(gefisstats_gdb, ras)
     temptab = arcpy.da.TableToNumPyArray(
         Sample(in_rasters=in_path, in_location_data=EFpoints_QAQCed_riverjoin,
-               out_table=Path(process_gdb, 'temp'),
+               out_table=os.path.join(process_gdb, 'temp'),
                resampling_type='NEAREST', unique_id_field=oidfn),
         field_names=['Master_20211104_QAQCed_riverjoin', '{}_Band_1'.format(ras)]
     )
 
     tempdict = {i:j for i,j in temptab}
 
-    arcpy.AddField_management(EFpoints_QAQCed_riverjoin, ras, 'float')
+    arcpy.management.AddField(EFpoints_QAQCed_riverjoin, ras, 'float')
     with arcpy.da.UpdateCursor(EFpoints_QAQCed_riverjoin, [oidfn, ras]) as cursor:
         for row in cursor:
             print(row[0])
@@ -129,7 +129,7 @@ for ras in ['MAR_boolean_ratio', 'EMC_boolean_ratio', 'EMC_10Variable_2_mean','M
                         row[1] = tempdict[row[0]]
                 cursor.updateRow(row)
 
-arcpy.CopyRows_management(EFpoints_QAQCed_riverjoin, Path(resdir, 'Master_20211104_QAQCed_riverjoin.csv'))
+arcpy.management.CopyRows(EFpoints_QAQCed_riverjoin, os.path.join(resdir, 'Master_20211104_QAQCed_riverjoin.csv'))
 
 
 #######################################################################################################################
@@ -142,7 +142,7 @@ arcpy.CopyRows_management(EFpoints_QAQCed_riverjoin, Path(resdir, 'Master_202111
 #     [[l,u] for l, u in zip(EMCinter[:-1], EMCinter[1:])]
 # ))
 # for c in EMCdict:
-#  EMCdict[c].append(Path(gefis15s_gdb, 'EMCarea_{0}'.format(c)))
+#  EMCdict[c].append(os.path.join(gefis15s_gdb, 'EMCarea_{0}'.format(c)))
 #
 # for emc in EMCdict:
 #     if not arcpy.Exists(EMCdict[emc][2]):
@@ -151,33 +151,33 @@ arcpy.CopyRows_management(EFpoints_QAQCed_riverjoin, Path(resdir, 'Master_202111
 #             Raster(px_grid)).save(EMCdict[emc][2])
 #
 # #Extract data
-# wslist = [Path(wsgdb, x) for x in getfilelist(wsgdb)]
+# wslist = [os.path.join(wsgdb, x) for x in getfilelist(wsgdb)]
 #
 # #Layers to sum and divide
-# sumdivras_list = [Path(gefis15s_gdb, p) for p in
+# sumdivras_list = [os.path.join(gefis15s_gdb, p) for p in
 #                ['MAR_A_v2', 'MAR_B_v2', 'MAR_C_v2','MAR_D_v2', 'MAR_EF_Probable_mcm', 'MAR_Natural_Annual_Runoff_v2']]
 #
 # print('Processing rasters for divided sum')
 # sumdiv_pd = zonalstats_indiv(zonelist = wslist, valuelist = sumdivras_list, statistics = 'SUM',
 #                              rastemplate = px_grid, IDcol = 'no')
 # sumdiv_pd.iloc[:,1:] = sumdiv_pd.iloc[:,1:].div(576.0)
-# sumdiv_pd.to_csv(Path(resdir, 'efsites_gefissumdiv.csv'))
+# sumdiv_pd.to_csv(os.path.join(resdir, 'efsites_gefissumdiv.csv'))
 #
 # print('Processing rasters for sums')
 # sum_pd = zonalstats_indiv(zonelist = wslist, valuelist = getfilelist(gefis15s_gdb, 'EMCarea.*'), statistics = 'SUM',
 #                           rastemplate = px_grid, IDcol = 'no')
-# sum_pd.to_csv(Path(resdir, 'efsites_gefissum.csv'))
+# sum_pd.to_csv(os.path.join(resdir, 'efsites_gefissum.csv'))
 #
 # print('Processing rasters for means')
-# mean_pd = zonalstats_indiv(zonelist = wslist, valuelist = [Path(gefis15s_gdb, 'EMC_10Variable_2')],
+# mean_pd = zonalstats_indiv(zonelist = wslist, valuelist = [os.path.join(gefis15s_gdb, 'EMC_10Variable_2')],
 #                            statistics = 'MEAN',
 #                            rastemplate = px_grid, IDcol = 'no')
-# mean_pd.to_csv(Path(resdir, 'efsites_gefismean.csv'))
+# mean_pd.to_csv(os.path.join(resdir, 'efsites_gefismean.csv'))
 #
 # print('Processing coverage of layers by basin')
 # ratio_pd = zonalstats_indiv(zonelist = wslist, valuelist = getfilelist(gefis15s_gdb, '.*_boolean$'),
 #                               statistics = 'RATIO', rastemplate = px_grid, IDcol = 'no')
-# ratio_pd.to_csv(Path(resdir, 'efsites_gefisratio.csv'))
+# ratio_pd.to_csv(os.path.join(resdir, 'efsites_gefisratio.csv'))
 #
 #
 # #Join all stats
@@ -187,4 +187,4 @@ arcpy.CopyRows_management(EFpoints_QAQCed_riverjoin, Path(resdir, 'Master_202111
 #     ratio_pd, on='no')
 #
 # #Write out to csv
-# allstats_pd.to_csv(Path(resdir, 'efsites_gefisstats.csv'))
+# allstats_pd.to_csv(os.path.join(resdir, 'efsites_gefisstats.csv'))

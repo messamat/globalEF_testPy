@@ -20,26 +20,19 @@ process_france_rhone.R
 
 #For Mexico: download_format_Mexico.R -> 'mexico_refdata_preformatted.csv'
 
-Prior to the spatial formatting, execute src/GEFIS_testR/preQAQC_format.R
-3. format_points.py
-4. link_sites_ef
-5. link_sites_GRDC
-6. link_
 
 
-Then, to reproduce the spatial formatting of the data, the scripts need to be run in the following order:
-1. downscale_GEFIS.py
-2. format_points.py
+3. format_points.py - merge all databases
+4. downscale_efmodels based on downscale_GEFIS - TO WRITE
 
+TO RE-RUN
 Then execute the following code in R: src/GEFIS_testR/postQAQC_merge_dbversions.R
 
-And continue with the following workflow:
+And continue with the following workflow: TO RE-RUN
 3. link_sites_GEFIS.py
 4. link_sites_GRDC.py
 5. link_sites_RiverATLAS.py
 6. quantify_mask.py
-
-Ignore delineate_watersheds.py and format_brazilbasins.py
 
 Note that substantial manual quality-checking and editing was performed on the location of the e-flow assessment sites, 
 a process that cannot be programatically reproduced.
