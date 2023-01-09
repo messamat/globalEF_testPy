@@ -8,9 +8,11 @@ import os
 import pandas as pd
 from pathlib import Path
 import re
+import requests
 import traceback
 import sys
 from inspect import getsourcefile
+import zipfile
 
 arcpy.CheckOutExtension('Spatial')
 arcpy.env.overwriteOutput = True

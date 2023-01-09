@@ -1,5 +1,9 @@
+import arcpy.conversion
+
 from globalEF_comparison_setup import *
 from lat_lon_parser import parse
+
+arcpy.env.qualifiedFieldNames = 'False'
 
 #Input data - 2021 Master database
 csdat_1 = os.path.join(datdir, 'Formatted_data_Chandima_20211018') #Data folder from Chandima Subasinghe (CS)
@@ -48,17 +52,24 @@ EFpoints_1028notIWMI_raw = os.path.join(process_gdb, 'Master_20211104_parzered_n
 EFpoints_1028notIWMI_joinedit = os.path.join(process_gdb, 'Master_20211104_parzered_notIWMI_joinedit')
 
 #Outputs - Mexico
-EFbasins_Mexico = os.path.join(process_gdb, 'EFbasins_Mexico')
-EFbasins_Mexico_wgs84 = os.path.join(process_gdb, 'EFbasins_Mexico_wgs84')
-EFbasins_ptraw_Mexico = os.path.join(process_gdb, 'EFbasins_ptraw_Mexico')
-EFbasins_ptraw_attri_Mexico = os.path.join(process_gdb, 'EFbasins_ptraw_attri_Mexico')
-EFbasins_ptjointedit_Mexico = os.path.join(process_gdb, 'EFbasins_ptjoinedit_attri_Mexico')
+EFgdb_Mexico = os.path.join(resdir, 'mexico_preprocessing.gdb')
+pathcheckcreate(EFgdb_Mexico)
+EFbasins_Mexico = os.path.join(EFgdb_Mexico, 'EFbasins_Mexico')
+EFbasins_Mexico_wgs84 = os.path.join(EFgdb_Mexico, 'EFbasins_Mexico_wgs84')
+EFbasins_ptraw_Mexico = os.path.join(EFgdb_Mexico, 'EFbasins_ptraw_Mexico')
+EFbasins_ptraw_attri_Mexico = os.path.join(EFgdb_Mexico, 'EFbasins_ptraw_attri_Mexico')
+EFbasins_ptjointedit_Mexico = os.path.join(EFgdb_Mexico, 'EFbasins_ptjoinedit_attri_Mexico')
+EFpoints_Mexico_clean = os.path.join(EFgdb_Mexico, 'Mexico_EFpoints_clean')
+EFpoints_Mexico_cleanjoin = os.path.join(EFgdb_Mexico, 'Mexico_EFpoints_cleanjoin')
 
 #Outputs - Victoria
 EFpoints_Victoria_snap = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_snap')
 EFpoints_Victoria_edit = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_edit')
 EFpoints_Victoria_clean = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_clean')
 EFpoints_Victoria_cleanjoin = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_cleanjoin')
+emc_Victoria_rawdat = os.path.join(datdir, 'victoria_streamcondition_gda94', 'WATER.gdb', 'ISC_REACH')
+EFpoints_Victoria_emcedit = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_clean_emc_edit')
+EFpoints_Victoria_emcedit_attri = os.path.join(EFgdb_Victoria, 'Victoria_EFpoints_clean_emc_edit_attri')
 
 #Outputs - Rhone
 EFpoints_Rhone_snap = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_snap')
@@ -67,8 +78,8 @@ EFpoints_Rhone_clean = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_clean')
 EFpoints_Rhone_cleanjoin = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_cleanjoin')
 
 #Outputs - General
-EFpoints_1028_merge = os.path.join(process_gdb, 'EFpoints_20211104_merge')
-EFpoints_1028_clean = os.path.join(process_gdb, 'EFpoints_20211104_clean')
+EFpoints_1219_merge = os.path.join(process_gdb, 'EFpoints_20221219_merge')
+EFpoints_1219_clean = os.path.join(process_gdb, 'EFpoints_20221219_clean')
 
 #---------------------------------- FORMATTING RHONE SITES  ------------------------------------------------------------
 #Add raw coordinates to sites
@@ -253,24 +264,35 @@ arcpy.analysis.SpatialJoin(EFpoints_Victoria_clean, hydroriv, EFpoints_Victoria_
                            match_option='CLOSEST_GEODESIC', search_radius=0.005,
                            distance_field_name='EFpoint_hydroriv_distance')
 
-arcpy.management.CopyRows(EFpoints_Victoria_clean,
-                          os.path.join(resdir,
-                                       'Victoria_EFpoints_clean_{}.csv'.format(date.today().strftime('%Y%m%d'))))
-
-
+# Get stream condition for Victoria EFAs
 # Downloaded stream condition index from
-"""
-Title 	Index of Stream Condition
-URL https://datashare.maps.vic.gov.au/search?md=48d03335-0ee2-5107-838a-630808cf0f09
-ANZLICID 	ANZVI0803002935
-Custodian 	Department of Environment, Land, Water & Planning
-Abstract 	Rates each section of major rivers according to a defined set of rules.
-Search Words 	inland waters
-Contact 	Point of contact resource Department of Environment, Land, Water & Planning Rwmp.wim@dse.vic.gov.au RWMP 
-Info RWMP RWMP Info Level 10 / 8 Nicholson St, East Melbourne, Vic, 3002, Australia +61 3 9637 9010,+61 3 9637 8489;
-Point of contact metadata Department of Environment, Land, Water & Planning Rwmp.wim@dse.vic.gov.au RWMP Info RWMP RWMP
- Info Level 10 / 8 Nicholson St, East Melbourne, Vic, 3002, Australia +61 3 9637 9010,+61 3 9637 8489 """
+# URL https://datashare.maps.vic.gov.au/search?md=48d03335-0ee2-5107-838a-630808cf0f09
+scale = {'excellent': [71, 100], 'good': [51, 70], 'moderate': [31, 50],
+         'poor': [11, 30], 'very poor': [0, 10], 'insufficient data': -99}
 
+#Project EFpoints_Victoria_clean
+if not arcpy.Exists(EFpoints_Victoria_emcedit):
+    arcpy.management.Project(EFpoints_Victoria_clean, EFpoints_Victoria_emcedit,
+                             out_coor_system = arcpy.Describe(emc_Victoria_rawdat).spatialReference)
+
+    #Snap to emc_Victoria_rawdat
+    snapenv_emcvic = [[emc_Victoria_rawdat, 'EDGE', '1000 meters']]
+    arcpy.edit.Snap(EFpoints_Victoria_emcedit, snapenv_emcvic)
+
+    ####Make sure points are well snapped and adjust if needed
+
+#Get condition
+arcpy.analysis.SpatialJoin(EFpoints_Victoria_emcedit, emc_Victoria_rawdat, EFpoints_Victoria_emcedit_attri,
+                           join_operation='JOIN_ONE_TO_ONE',
+                           join_type='KEEP_COMMON',
+                           match_option='CLOSEST')
+arcpy.management.AlterField(EFpoints_Victoria_emcedit_attri, 'REACH',
+                            new_field_name='reach_isc', new_field_alias='reach_isc')
+
+#Export
+arcpy.management.CopyRows(EFpoints_Victoria_emcedit_attri,
+                          os.path.join(resdir,
+                                       'Victoria_EFpoints_emcedit_attri_{}.csv'.format(date.today().strftime('%Y%m%d'))))
 
 # ---------------------------------- FORMAT MEXICAN SITES ---------------------------------------------------------------
 # Link EF tab from Salinas-Rodriguez et al. 2021 to basin shapefile
@@ -390,7 +412,7 @@ editdict_mexico = {
 arcpy.management.AddField(EFbasins_ptjointedit_Mexico, 'Point_shift_mathis', 'SHORT')
 arcpy.management.AddField(EFbasins_ptjointedit_Mexico, 'Comment_mathis', 'TEXT')
 
-with arcpy.da.UpdateCursor(EFpoints1_joinedit,
+with arcpy.da.UpdateCursor(EFbasins_ptjointedit_Mexico,
                            ['id_cuenca', 'Point_shift_mathis', 'Comment_mathis', 'OBJECTID']) as cursor:
     for row in cursor:
         if row[0] in editdict_mexico:
@@ -398,6 +420,73 @@ with arcpy.da.UpdateCursor(EFpoints1_joinedit,
             row[2] = editdict_mexico[row[0]][1] # Comment_mathis = second entry in dictionary
         else:
             row[1] = 0
+        cursor.updateRow(row)
+
+#Delete sites, clean fields
+arcpy.management.CopyFeatures(EFbasins_ptjointedit_Mexico, EFpoints_Mexico_clean)
+
+arcpy.management.CalculateGeometryAttributes(in_features=EFpoints_Mexico_clean,
+                                             geometry_property=[['Longitude_snappedl', 'POINT_X'],
+                                                                ['Latitude_snapped', 'POINT_Y']])
+arcpy.analysis.SpatialJoin(EFpoints_Mexico_clean, hydroriv, EFpoints_Mexico_cleanjoin,
+                           join_operation='JOIN_ONE_TO_ONE', join_type="KEEP_COMMON",
+                           match_option='CLOSEST_GEODESIC', search_radius=0.005,
+                           distance_field_name='EFpoint_hydroriv_distance')
+
+arcpy.management.CopyRows(EFpoints_Mexico_clean,
+                          os.path.join(resdir,
+                                       'Mexico_EFpoints_clean_{}.csv'.format(date.today().strftime('%Y%m%d'))))
+
+# ---------------------------------- FORMATTING OF BRAZILIAN SITES -----------------------------------------------------
+brazil_daturl = "https://metadados.snirh.gov.br/geonetwork/srv/api/records/0574947a-2c5b-48d2-96a4-b07c4702bbab/attachments/SNIRH_RegioesHidrograficas_2020.zip"
+brazil_zipdir = os.path.join(datdir, os.path.basename(brazil_daturl))
+brazil_datdir = os.path.join(os.path.splitext(brazil_zipdir)[0])
+brazil_basins = os.path.join(brazil_datdir, 'SNIRH_RegioesHidrograficas_2020.shp')
+EFgdb_Brazil = os.path.join(resdir, 'brazil_preprocessing.gdb')
+pathcheckcreate(EFgdb_Brazil)
+brazil_basins_ras = os.path.join(EFgdb_Brazil, "SNIRH_RegioesHidrograficas_2020_ras")
+brazil_basins_pourpoints = os.path.join(EFgdb_Brazil, "SNIRH_RegioesHidrograficas_2020_prpts")
+
+if not arcpy.Exists(brazil_zipdir):
+    with open(brazil_zipdir, "wb") as file:
+        # get request
+        print(f"Downloading {Path(brazil_daturl).name}")
+        response = requests.get(brazil_daturl)
+        file.write(response.content)
+    with zipfile.ZipFile(brazil_zipdir, 'r') as zdir:
+        zdir.extractall(brazil_datdir)
+
+arcpy.env.extent = arcpy.env.snapRaster = up_area
+arcpy.conversion.PolygonToRaster(in_features=brazil_basins, value_field='id', out_rasterdataset=brazil_basins_ras,
+                                 cellsize=up_area)
+brazil_basins_maxdis = ZonalStatistics(in_zone_data=brazil_basins_ras,
+                                       zone_field='Value',
+                                       in_value_raster=up_area,
+                                       statistics_type='MAXIMUM')
+brazil_basins_outlets_ras = Con(Raster(up_area) == brazil_basins_maxdis, brazil_basins_ras)
+arcpy.conversion.RasterToPoint(brazil_basins_outlets_ras, brazil_basins_pourpoints, raster_field='VALUE')
+arcpy.management.DeleteIdentical(in_dataset=brazil_basins_pourpoints, fields='grid_code')
+arcpy.management.Delete(brazil_basins_maxdis)
+arcpy.management.Delete(brazil_basins_outlets_ras)
+
+regioes_mergetable = {1: ['URUGUAI',  'Uruguay Hydrografic Region'],
+                      2:	['SÃO FRANCISCO', 'São Francisco Hydrografic Region'],
+                      6:	['PARANÁ', 'Parana Hydrografic Region'],
+                      7:	['TOCANTINS-ARAGUAIA', 'Tocantins-Araguaia Hydrografic Region'],
+                      9:	['PARAGUAI', 'Paraguay Hydrografic Region'],
+                      12:	['PARNAÍBA', 'Parnaíba Hydrografic Region'],
+                      35:	['ATLÂNTICO SUL', 'South Atlantic Hydrografic Region'],
+                      38:	['ATLÂNTICO NORDESTE ORIENTAL', 'Eastern Northeast Atlantic Hydrografic Region'],
+                      39:	['ATLÂNTICO NORDESTE OCIDENTAL', 'Western Atlantic Hydrografic Region'],
+                      40:	['AMAZÔNICA', 'Amazon Hydrografic Region'],
+                      42: ['ATLÂNTICO SUDESTE', 'Southeast Atlantic Hydrografic Region'],
+                      46:	['ATLÂNTICO LESTE', 'East Atlantic Hydrografic Region'],}
+
+if "basin_name" not in [f.name for f in arcpy.ListFields(brazil_basins_pourpoints)]:
+    arcpy.management.AddField(brazil_basins_pourpoints, "basin_name", 'TEXT')
+with arcpy.da.UpdateCursor(brazil_basins_pourpoints, ['grid_code', 'basin_name']) as cursor:
+    for row in cursor:
+        row[1] = regioes_mergetable[row[0]][1]
         cursor.updateRow(row)
 
 # ---------------------------------- FORMATTING OF SITES FROM CS / FIRST BATCH -----------------------------------------
@@ -666,22 +755,24 @@ arcpy.management.DeleteField(EFpoints_1028notIWMI_joinedit, 'Comments') # Cannot
 
 # ---------------------------------- MERGE AND FORMAT ALL SITES -----------------------------------------------------------
 # Clean and merge datasets
-arcpy.management.Merge([EFpoints1_joinedit, EFpoints2_joinedit, EFpoints_1028notIWMI_joinedit], EFpoints_1028_merge)
+arcpy.management.Merge([EFpoints1_joinedit, EFpoints2_joinedit, EFpoints_1028notIWMI_joinedit,
+                        EFpoints_Mexico_clean, EFpoints_Rhone_clean, EFpoints_Victoria_clean,
+                        brazil_basins_pourpoints], EFpoints_1219_merge)
 
 # Delete sites, clean fields
-arcpy.management.CopyFeatures(EFpoints_1028_merge, EFpoints_1028_clean)
-with arcpy.da.UpdateCursor(EFpoints_1028_clean, ['Point_shift_mathis']) as cursor:
+arcpy.management.CopyFeatures(EFpoints_1219_merge, EFpoints_1219_clean)
+with arcpy.da.UpdateCursor(EFpoints_1219_clean, ['Point_shift_mathis']) as cursor:
     for row in cursor:
         if row[0] == -1:
             cursor.deleteRow()
 
 # Delete duplicates
-arcpy.management.DeleteIdentical(EFpoints_1028_clean, ['no', 'HYRIV_ID', 'Id', 'EFUID'])
+arcpy.management.DeleteIdentical(EFpoints_1219_clean, ['no', 'HYRIV_ID', 'Id', 'UID_Mathis', 'EFUID'])
 
 # Delete useless fields
-for f1 in arcpy.ListFields(EFpoints_1028_clean):
-    if f1.name not in ['OBJECTID_1', 'Shape', 'no', 'Id', 'EFUID', 'Country', 'Point_shift_mathis', 'Comment_mathis']:
-        arcpy.management.DeleteField(EFpoints_1028_clean, f1.name)
+for f1 in arcpy.ListFields(EFpoints_1219_clean):
+    if f1.name not in ['OBJECTID_1', 'Shape', 'no', 'Id', 'EFUID', 'UID_Mathis', 'Country', 'Point_shift_mathis', 'Comment_mathis']:
+        arcpy.management.DeleteField(EFpoints_1219_clean, f1.name)
 
 # Create new points for those that did not have coordinates
 newpts_1028 = {
@@ -702,23 +793,23 @@ newpts_1028 = {
 }
 
 #  Open an InsertCursor and insert the new geometry
-with arcpy.da.InsertCursor(EFpoints_1028_clean, ['EFUID', 'SHAPE@']) as cursor:
+with arcpy.da.InsertCursor(EFpoints_1219_clean, ['EFUID', 'SHAPE@']) as cursor:
     for k in newpts_1028:
         cursor.insertRow((k, newpts_1028[k]))
-with arcpy.da.InsertCursor(EFpoints_1028_clean, ['no', 'SHAPE@']) as cursor:
+with arcpy.da.InsertCursor(EFpoints_1219_clean, ['no', 'SHAPE@']) as cursor:
     cursor.insertRow((40, arcpy.Point(28.1006, -29.4591)))
 
 # Snap to river network
 snapenv = [[hydroriv, 'EDGE', '1000 meters']]
-arcpy.edit.Snap(EFpoints_1028_clean, snapenv)
+arcpy.edit.Snap(EFpoints_1219_clean, snapenv)
 
 # Add coordinates
-arcpy.management.CalculateGeometryAttributes(in_features=EFpoints_1028_clean,
+arcpy.management.CalculateGeometryAttributes(in_features=EFpoints_1219_clean,
                                              geometry_property=[['POINT_X', 'POINT_X'],
                                                                 ['POINT_X', 'POINT_Y']])
 
 # Get formatted GRDC stations from global non-perennial rivers project (Messager et al. 2021) - doesn't work, did it manually
-gaugesp_out = os.path.join(process_gdb, 'GRDCstations_predbasic800')
-if not arcpy.Exists(gaugesp_out):
-    arcpy.management.CopyFeatures(in_features = 'D://globalIRmap/results/GRDCstations_predbasic800.gpkg/GRDCstations_predbasic800',
-                                  out_feature_class= Path(process_gdb, 'GRDCstations_predbasic800'))
+# gaugesp_out = os.path.join(process_gdb, 'GRDCstations_predbasic800')
+# if not arcpy.Exists(gaugesp_out):
+#     arcpy.management.CopyFeatures(in_features = 'D://globalIRmap/results/GRDCstations_predbasic800.gpkg/GRDCstations_predbasic800',
+#                                   out_feature_class= Path(process_gdb, 'GRDCstations_predbasic800'))
