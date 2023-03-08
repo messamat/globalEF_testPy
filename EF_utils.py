@@ -171,14 +171,19 @@ def compute_smakhtinef_ts(cell, n_shift=1, loginterp_padding = 0.00001, vname = 
 
 def compute_smakhtinef_stats(in_xr, out_dir, out_efnc_basename, n_shift=1, vname='dis'):
     #Compute time series of e-flow based on Smakthin flow duration curve method
+
+    #Quantiles used in deriving flow duration curve
     smakthin_quantlist = [0.0001, 0.001, 0.01, 0.05, 0.1, 0.2, 0.3,
                                     0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 0.999, 0.9999]
+
+    #Generate flow duration curve for each cell
     fdc_xr = compute_xrfdc(in_xr = in_xr,
                            quant_list = smakthin_quantlist,
                            vname = vname)
     xr.merge([in_xr, fdc_xr]).to_netcdf(Path(out_dir, 'scratch2.nc4'))
     run_fdc_merge_disk = xr.open_dataset(Path(out_dir, 'scratch2.nc4'))
 
+    #Compute e-flow values for each cell
     smakhtinef = run_fdc_merge_disk.stack(gridcell=["lat", "lon"]).\
         groupby("gridcell").\
         map(compute_smakhtinef_ts, args=[n_shift]).\
@@ -186,7 +191,7 @@ def compute_smakhtinef_stats(in_xr, out_dir, out_efnc_basename, n_shift=1, vname
     smakhtinef['time'] = run_fdc_merge_disk.time
 
     #Compute e-flow relative to MAF
-    run_maf = run_fdc_merge_disk[vname].mean(dim='time')
+    run_maf = run_fdc_merge_disk[vname].mean(dim='time') #Mean Flow
     smakhtinef_mean = xr.merge([run_maf,
                                   xr.Dataset(dict(ef_a_mean = smakhtinef.mean(dim='time').round(5)))])
     smakhtinef_relative = xr.where((smakhtinef_mean[vname].round(decimals=5) > 0) | (np.isnan(smakhtinef_mean[vname])),
