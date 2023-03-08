@@ -10,7 +10,7 @@ data prior to data analysis.
 
 In Python:
 1. Download isimp2b #DONE
-2. Pre-process isimp2b #DONE
+2. Pre-process isimp2b #Ran it for discharge. Need to run it for runoff now.
 3. Pre-process PCR-GLOBWB 2.0 #DONE
 
 #For Rhone sites
