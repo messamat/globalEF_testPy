@@ -16,18 +16,18 @@ def spatiotemporal_chunk_optimized_acrosstime(in_xr, lat_dimname='lat', lon_dimn
 
 # Resample at monthly scale
 # Some of the simulations have negative values of discharge and/or runoff
-def aggregate_monthly_fromdf(row, remove_negative_values=True, discharge_vname = 'dis'):
+def aggregate_monthly_fromdf(row, remove_negative_values=True, vname = 'dis'):
     if not row['monthly_path'].exists():
         print(f"Processing {row['monthly_path']}")
         xr_toresample = xr.open_dataset(row['path'])
         if remove_negative_values:
-            xr_toresample[discharge_vname] = xr.where(xr_toresample[discharge_vname] < 0, 0, xr_toresample[discharge_vname])
+            xr_toresample[vname] = xr.where(xr_toresample[vname] < 0, 0, xr_toresample[vname])
         xr_toresample.resample(time='1MS').mean().to_netcdf(row['monthly_path'])
     else:
         print(f"{row['monthly_path']} already exists. Skipping... ")
 
 #### -------------- Function to compute Tennant, Q90Q50, Tessmann and VMF eflows ---------------------------------------------------
-def compute_monthlyef_notsmakhtin(in_xr, out_efnc, discharge_vname = 'dis', time_dimname = 'time',
+def compute_monthlyef_notsmakhtin(in_xr, out_efnc, vname = 'dis', time_dimname = 'time',
                                   lat_dimname = 'lat', lon_dimname = 'lon', remove_outliers = True):
     # Remove outliers - monthly flow values over mean+3sd or under mean-3sd
     if remove_outliers:
@@ -61,31 +61,31 @@ def compute_monthlyef_notsmakhtin(in_xr, out_efnc, discharge_vname = 'dis', time
     # Compute Tennant, Q90_Q50, Tessmann and VMF e-flows
     global_monthly_eflows = xr.where(run_mmf <= run_maf,
                                      0.2 * run_maf,
-                                     0.4 * run_maf).rename({discharge_vname:"tennant"}). \
+                                     0.4 * run_maf).rename({vname:"tennant"}). \
             merge(xr.where(run_mmf <= run_maf,
                            run_q90,
-                           run_q50).rename({discharge_vname: "q90q50"})). \
+                           run_q50).rename({vname: "q90q50"})). \
                 merge(xr.where(run_mmf <= 0.4 * run_maf,
                        run_mmf,
                        xr.where(0.4 * run_mmf > 0.4 * run_maf,
                                 0.4 * run_mmf,
                                 0.4 * run_maf)
-                       ).rename({discharge_vname: "tessmann"})). \
+                       ).rename({vname: "tessmann"})). \
         merge(xr.where(run_mmf <= 0.4 * run_maf,
                        0.6 * run_mmf,
                        xr.where(run_mmf > 0.8 * run_maf,
                                 0.3 * run_mmf,
                                 0.45 * run_maf)
-                       ).rename({discharge_vname: "vmf"}))
+                       ).rename({vname: "vmf"}))
 
     global_monthly_eflows.to_netcdf(out_efnc)
 
 
 #### -------------- Functions to compute modern smakthin method ---------------------------------------------------------------------
 #Generate flow duration curve for each cell
-def compute_xrfdc(in_xr, quant_list, discharge_vname = 'dis'):
+def compute_xrfdc(in_xr, quant_list, vname = 'dis'):
     fdc_xr = in_xr.quantile(q=quant_list, dim='time'). \
-        rename({"quantile" : "exceedance_prob", discharge_vname : "fdc_dis"})
+        rename({"quantile" : "exceedance_prob", vname : "fdc_dis"})
     fdc_xr["exceedance_prob"] = 1 - fdc_xr["exceedance_prob"]
     return(fdc_xr)
 
@@ -101,9 +101,9 @@ def compute_xrfdc(in_xr, quant_list, discharge_vname = 'dis'):
 # cell = run_fdc_merge.sel(lat=69.75, lon=-169.25) #Example with only no data (in the sea)
 # cell = run_fdc_merge.sel(lat=45.75, lon=5.25) #Example with data
 # cell = run_fdc_merge.sel(lat=25.25, lon=22.25) #Example with 0s
-def compute_smakhtinef_ts(cell, n_shift=1, loginterp_padding = 0.00001, discharge_vname = 'dis'):
+def compute_smakhtinef_ts(cell, n_shift=1, loginterp_padding = 0.00001, vname = 'dis'):
     fdc = np.round(cell.fdc_dis.values.squeeze() + loginterp_padding, 5)
-    maxval = cell[discharge_vname].values.max()
+    maxval = cell[vname].values.max()
 
     if (len(np.unique(fdc[~np.isnan(fdc)]))-n_shift) > 1: #If enough unique values in the FDC to interpolate after shifting
         xp = np.log(fdc)
@@ -116,14 +116,14 @@ def compute_smakhtinef_ts(cell, n_shift=1, loginterp_padding = 0.00001, discharg
                                        y=fp[(n_shift):][xp_shift_unique[1]],
                                        kind='linear', fill_value='extrapolate')
         #Get logarithmic interpolation outputs from grid cell values - generate new flow time series
-        ts_eflow_unfloored = np.exp(f_shift(np.log(cell[discharge_vname] + loginterp_padding)))
+        ts_eflow_unfloored = np.exp(f_shift(np.log(cell[vname] + loginterp_padding)))
         ts_eflow_unfloored[(ts_eflow_unfloored <= loginterp_padding)] = loginterp_padding #Bound it at 0 (after padding removal)
 
         return (
                 xr.DataArray(
                     # Make sure that linear extrapolation based on last two values did not lead to e-flow values higher than source data
-                    xr.where(ts_eflow_unfloored > (cell[discharge_vname].values + loginterp_padding),
-                             cell[discharge_vname].values,
+                    xr.where(ts_eflow_unfloored > (cell[vname].values + loginterp_padding),
+                             cell[vname].values,
                              (ts_eflow_unfloored - loginterp_padding)
                              ).squeeze(),
                     dims='time')
@@ -151,14 +151,14 @@ def compute_smakhtinef_ts(cell, n_shift=1, loginterp_padding = 0.00001, discharg
         f_shift = interpolate.interp1d(x=xp_unique[0],
                                        y=fp[xp_unique[1]],
                                        kind='linear', fill_value='extrapolate')
-        ts_eflow = f_shift(cell[discharge_vname])
+        ts_eflow = f_shift(cell[vname])
         return (
             xr.DataArray(ts_eflow.squeeze(), dims='time')
         )
 
     else: #If only one unique value
         return(
-            xr.DataArray(cell[discharge_vname].values.squeeze(), dims='time')
+            xr.DataArray(cell[vname].values.squeeze(), dims='time')
         )
 
 # To deal with zeros
@@ -169,31 +169,31 @@ def compute_smakhtinef_ts(cell, n_shift=1, loginterp_padding = 0.00001, discharg
 # cell = run_fdc_merge_disk.isel(lat=130, lon=426, time=slice(0,120))
 # check = compute_smakhtinef_ts(cell)
 
-def compute_smakhtinef_stats(in_xr, out_dir, out_efnc_basename, n_shift=1, discharge_vname='dis'):
+def compute_smakhtinef_stats(in_xr, out_dir, out_efnc_basename, n_shift=1, vname='dis'):
     #Compute time series of e-flow based on Smakthin flow duration curve method
     smakthin_quantlist = [0.0001, 0.001, 0.01, 0.05, 0.1, 0.2, 0.3,
                                     0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 0.999, 0.9999]
     fdc_xr = compute_xrfdc(in_xr = in_xr,
                            quant_list = smakthin_quantlist,
-                           discharge_vname = discharge_vname)
+                           vname = vname)
     xr.merge([in_xr, fdc_xr]).to_netcdf(Path(out_dir, 'scratch2.nc4'))
     run_fdc_merge_disk = xr.open_dataset(Path(out_dir, 'scratch2.nc4'))
 
-    smakhtinef_a = run_fdc_merge_disk.stack(gridcell=["lat", "lon"]).\
+    smakhtinef = run_fdc_merge_disk.stack(gridcell=["lat", "lon"]).\
         groupby("gridcell").\
         map(compute_smakhtinef_ts, args=[n_shift]).\
         unstack('gridcell')
-    smakhtinef_a['time'] = run_fdc_merge_disk.time
+    smakhtinef['time'] = run_fdc_merge_disk.time
 
     #Compute e-flow relative to MAF
-    run_maf = run_fdc_merge_disk[discharge_vname].mean(dim='time')
-    smakhtinef_a_mean = xr.merge([run_maf,
-                                  xr.Dataset(dict(ef_a_mean = smakhtinef_a.mean(dim='time').round(5)))])
-    smakhtinef_a_relative = xr.where((smakhtinef_a_mean[discharge_vname].round(decimals=5) > 0) | (np.isnan(smakhtinef_a_mean[discharge_vname])),
-                                     (smakhtinef_a_mean.ef_a_mean/smakhtinef_a_mean[discharge_vname].round(decimals=5)).values, 1)
+    run_maf = run_fdc_merge_disk[vname].mean(dim='time')
+    smakhtinef_mean = xr.merge([run_maf,
+                                  xr.Dataset(dict(ef_a_mean = smakhtinef.mean(dim='time').round(5)))])
+    smakhtinef_relative = xr.where((smakhtinef_mean[vname].round(decimals=5) > 0) | (np.isnan(smakhtinef_mean[vname])),
+                                     (smakhtinef_mean.ef_a_mean/smakhtinef_mean[vname].round(decimals=5)).values, 1)
     #Compute total annual e-flow
-    smakhtinef_a_taef = smakhtinef_a.groupby('month').mean(skipna=True).sum(dim='month', skipna=False)
+    smakhtinef_taef = smakhtinef.groupby('month').mean(skipna=True).sum(dim='month', skipna=False)
 
     #Merge and write out
-    xr.Dataset(dict(raef=smakhtinef_a_relative, taef=smakhtinef_a_taef)).\
+    xr.Dataset(dict(raef=smakhtinef_relative, taef=smakhtinef_taef)).\
         to_netcdf(Path(out_dir, out_efnc_basename))
