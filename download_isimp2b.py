@@ -1,7 +1,5 @@
 from globalEF_comparison_setup import *
 
-
-rootdir = os.path.dirname(os.path.abspath(__file__)).split('\\src')[0]
 datdir = os.path.join(rootdir, 'data')
 resdir = os.path.join(rootdir, 'results')
 
@@ -10,8 +8,8 @@ isimp2b_datdir = Path(datdir, 'isimp2b')
 if not isimp2b_datdir.exists():
     isimp2b_datdir.mkdir()
 
-#Create list of URLs to get from API
 
+#Create list of URLs to get from API
 root_url = "https://files.isimip.org//ISIMIP2b//OutputData//water_global"
 ghm_list = ["H08", "LPJmL", "PCR-GLOBWB", "WaterGAP2-2c"]
 gcm_list = ["gfdl-esm2m", "hadgem2-es", "ipsl-cm5a-lr", "miroc5"]
@@ -39,6 +37,16 @@ for url in isimp2b_pathlist:
             response = requests.get(url)
             file.write(response.content)
 
+
+#Re-run for runoff
+for url in isimp2b_pathlist:
+    outnc = Path(isimp2b_datdir, Path(url).name)
+    if not outnc.exists():
+        with open(outnc, "wb") as file:
+            # get request
+            print(f"Downloading {Path(url).name}")
+            response = requests.get(url)
+            file.write(response.content)
 
 
 
