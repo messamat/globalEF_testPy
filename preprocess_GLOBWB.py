@@ -34,7 +34,7 @@ def preprocess_GLOBWB(in_path, in_var):
         print(f"Processing {outpath_ef_notsmakhtin.name}")
         compute_monthlyef_notsmakhtin(in_xr = dis_xr,
                                       out_efnc=outpath_ef_notsmakhtin ,
-                                      discharge_vname = 'discharge',
+                                      vname = in_var,
                                       lat_dimname='latitude',
                                       lon_dimname='longitude',
                                       time_dimname='time',
@@ -48,11 +48,11 @@ def preprocess_GLOBWB(in_path, in_var):
             print(f"Processing {outpath_ef_smakhtin}")
             compute_smakhtinef_stats(in_xr = dis_xr,
                                      out_dir = globwb_resdir,
-                                     discharge_vname='discharge',
+                                     vname=in_var,
                                      out_efnc_basename=outpath_ef_smakhtin,
                                      n_shift=shift)
         else:
             print(f"{outpath_ef_smakhtin} already exists. Skipping...")
 
-preprocess_GLOBWB(discharge_path, 'discharge')
-preprocess_GLOBWB(runoff_path, 'total_runoff')
+preprocess_GLOBWB(in_path=discharge_path, in_var='discharge')
+preprocess_GLOBWB(runoff_path, in_var='total_runoff')
