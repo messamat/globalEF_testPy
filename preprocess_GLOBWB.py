@@ -20,13 +20,13 @@ runoff_path = Path(globwb_datdir, 'totalRunoff_monthTot_output_1958-01-31_to_201
 def preprocess_GLOBWB(in_path, in_var):
     outpath_ef_notsmakhtin = Path(globwb_resdir, f'{in_path.name.split(".")[0]}_allefbutsmakhtin.nc4')
 
-    dis_xr = spatiotemporal_chunk_optimized_acrosstime(
-        xr.open_dataset(in_path),
-        lat_dimname='latitude',
-        lon_dimname='longitude',
-        time_dimname='time'
-    )
-
+    # dis_xr = spatiotemporal_chunk_optimized_acrosstime(
+    #     xr.open_dataset(in_path),
+    #     lat_dimname='latitude',
+    #     lon_dimname='longitude',
+    #     time_dimname='time'
+    # )
+    dis_xr = xr.open_dataset(in_path)
     dis_xr = dis_xr.assign_coords(month=("time",
                                          dis_xr.time.dt.strftime("%m").data))
 
@@ -46,11 +46,20 @@ def preprocess_GLOBWB(in_path, in_var):
         outpath_ef_smakhtin = f'{in_path.name.split(".")[0]}_smakhtinef_{emc}.nc4'
         if not Path(globwb_resdir, outpath_ef_smakhtin).exists():
             print(f"Processing {outpath_ef_smakhtin}")
+
+            import time
+            start = time.time()
             compute_smakhtinef_stats(in_xr = dis_xr,
                                      out_dir = globwb_resdir,
                                      vname=in_var,
                                      out_efnc_basename=outpath_ef_smakhtin,
-                                     n_shift=shift)
+                                     n_shift=shift,
+                                     lat_dimname='latitude',
+                                     lon_dimname='longitude',
+                                     scratch_file = 'scratch.nc4')
+            end = time.time()
+            print(end-start)
+
         else:
             print(f"{outpath_ef_smakhtin} already exists. Skipping...")
 
