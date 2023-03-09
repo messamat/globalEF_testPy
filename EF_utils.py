@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from pathlib import Path
 from scipy import interpolate
 import xarray as xr
@@ -169,7 +170,9 @@ def compute_smakhtinef_ts(cell, n_shift=1, loginterp_padding = 0.00001, vname = 
 # cell = run_fdc_merge_disk.isel(lat=130, lon=426, time=slice(0,120))
 # check = compute_smakhtinef_ts(cell)
 
-def compute_smakhtinef_stats(in_xr, out_dir, out_efnc_basename, n_shift=1, vname='dis'):
+def compute_smakhtinef_stats(in_xr, out_dir, out_efnc_basename, n_shift=1, vname='dis',
+                             lat_dimname='lat', lon_dimname='lon',
+                             scratch_file = 'scratch.nc4'):
     #Compute time series of e-flow based on Smakthin flow duration curve method
 
     #Quantiles used in deriving flow duration curve
@@ -177,28 +180,40 @@ def compute_smakhtinef_stats(in_xr, out_dir, out_efnc_basename, n_shift=1, vname
                                     0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 0.999, 0.9999]
 
     #Generate flow duration curve for each cell
+    print("Compute flow duration curve for each cell")
     fdc_xr = compute_xrfdc(in_xr = in_xr,
                            quant_list = smakthin_quantlist,
                            vname = vname)
-    xr.merge([in_xr, fdc_xr]).to_netcdf(Path(out_dir, 'scratch2.nc4'))
-    run_fdc_merge_disk = xr.open_dataset(Path(out_dir, 'scratch2.nc4'))
+    xr.merge([in_xr, fdc_xr]).to_netcdf(Path(out_dir, scratch_file))
+    run_fdc_merge_disk = xr.open_dataset(Path(out_dir, scratch_file))
 
     #Compute e-flow values for each cell
-    smakhtinef = run_fdc_merge_disk.stack(gridcell=["lat", "lon"]).\
+    print("Compute e-flow values for each cell")
+    smakhtinef = run_fdc_merge_disk.stack(gridcell=[lat_dimname, lon_dimname]).\
         groupby("gridcell").\
-        map(compute_smakhtinef_ts, args=[n_shift]).\
+        map(compute_smakhtinef_ts, args=[n_shift, 0.00001, vname]).\
         unstack('gridcell')
     smakhtinef['time'] = run_fdc_merge_disk.time
 
     #Compute e-flow relative to MAF
+    print("Compute e-flow relative to MAF")
     run_maf = run_fdc_merge_disk[vname].mean(dim='time') #Mean Flow
     smakhtinef_mean = xr.merge([run_maf,
                                   xr.Dataset(dict(ef_a_mean = smakhtinef.mean(dim='time').round(5)))])
     smakhtinef_relative = xr.where((smakhtinef_mean[vname].round(decimals=5) > 0) | (np.isnan(smakhtinef_mean[vname])),
                                      (smakhtinef_mean.ef_a_mean/smakhtinef_mean[vname].round(decimals=5)).values, 1)
     #Compute total annual e-flow
+    print("Compute total annual e-flow")
     smakhtinef_taef = smakhtinef.groupby('month').mean(skipna=True).sum(dim='month', skipna=False)
 
     #Merge and write out
+    print("Merge and write-out")
     xr.Dataset(dict(raef=smakhtinef_relative, taef=smakhtinef_taef)).\
         to_netcdf(Path(out_dir, out_efnc_basename))
+
+    del run_fdc_merge_disk
+
+    try:
+        os.remove(Path(out_dir, scratch_file))
+    except OSError:
+        pass
