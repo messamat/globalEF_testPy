@@ -77,9 +77,19 @@ EFpoints_Rhone_edit = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_edit')
 EFpoints_Rhone_clean = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_clean')
 EFpoints_Rhone_cleanjoin = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_cleanjoin')
 
+#Outputs - Brazil
+brazil_daturl = "https://metadados.snirh.gov.br/geonetwork/srv/api/records/0574947a-2c5b-48d2-96a4-b07c4702bbab/attachments/SNIRH_RegioesHidrograficas_2020.zip"
+brazil_zipdir = os.path.join(datdir, os.path.basename(brazil_daturl))
+brazil_datdir = os.path.join(os.path.splitext(brazil_zipdir)[0])
+brazil_basins = os.path.join(brazil_datdir, 'SNIRH_RegioesHidrograficas_2020.shp')
+EFgdb_Brazil = os.path.join(resdir, 'brazil_preprocessing.gdb')
+pathcheckcreate(EFgdb_Brazil)
+brazil_basins_ras = os.path.join(EFgdb_Brazil, "SNIRH_RegioesHidrograficas_2020_ras")
+brazil_basins_pourpoints = os.path.join(EFgdb_Brazil, "SNIRH_RegioesHidrograficas_2020_prpts")
+
 #Outputs - General
-EFpoints_1219_merge = os.path.join(process_gdb, 'EFpoints_20221219_merge')
-EFpoints_1219_clean = os.path.join(process_gdb, 'EFpoints_20221219_clean')
+EFpoints_0308_merge = os.path.join(process_gdb, 'EFpoints_20230308_merge')
+EFpoints_0308_clean = os.path.join(process_gdb, 'EFpoints_20230308_clean')
 
 #---------------------------------- FORMATTING RHONE SITES  ------------------------------------------------------------
 #Add raw coordinates to sites
@@ -438,15 +448,6 @@ arcpy.management.CopyRows(EFpoints_Mexico_clean,
                                        'Mexico_EFpoints_clean_{}.csv'.format(date.today().strftime('%Y%m%d'))))
 
 # ---------------------------------- FORMATTING OF BRAZILIAN SITES -----------------------------------------------------
-brazil_daturl = "https://metadados.snirh.gov.br/geonetwork/srv/api/records/0574947a-2c5b-48d2-96a4-b07c4702bbab/attachments/SNIRH_RegioesHidrograficas_2020.zip"
-brazil_zipdir = os.path.join(datdir, os.path.basename(brazil_daturl))
-brazil_datdir = os.path.join(os.path.splitext(brazil_zipdir)[0])
-brazil_basins = os.path.join(brazil_datdir, 'SNIRH_RegioesHidrograficas_2020.shp')
-EFgdb_Brazil = os.path.join(resdir, 'brazil_preprocessing.gdb')
-pathcheckcreate(EFgdb_Brazil)
-brazil_basins_ras = os.path.join(EFgdb_Brazil, "SNIRH_RegioesHidrograficas_2020_ras")
-brazil_basins_pourpoints = os.path.join(EFgdb_Brazil, "SNIRH_RegioesHidrograficas_2020_prpts")
-
 if not arcpy.Exists(brazil_zipdir):
     with open(brazil_zipdir, "wb") as file:
         # get request
@@ -757,22 +758,25 @@ arcpy.management.DeleteField(EFpoints_1028notIWMI_joinedit, 'Comments') # Cannot
 # Clean and merge datasets
 arcpy.management.Merge([EFpoints1_joinedit, EFpoints2_joinedit, EFpoints_1028notIWMI_joinedit,
                         EFpoints_Mexico_clean, EFpoints_Rhone_clean, EFpoints_Victoria_clean,
-                        brazil_basins_pourpoints], EFpoints_1219_merge)
+                        brazil_basins_pourpoints], EFpoints_0308_merge)
 
 # Delete sites, clean fields
-arcpy.management.CopyFeatures(EFpoints_1219_merge, EFpoints_1219_clean)
-with arcpy.da.UpdateCursor(EFpoints_1219_clean, ['Point_shift_mathis']) as cursor:
+arcpy.management.CopyFeatures(EFpoints_0308_merge, EFpoints_0308_clean)
+
+with arcpy.da.UpdateCursor(EFpoints_0308_clean, ['Point_shift_mathis']) as cursor:
     for row in cursor:
         if row[0] == -1:
             cursor.deleteRow()
 
 # Delete duplicates
-arcpy.management.DeleteIdentical(EFpoints_1219_clean, ['no', 'HYRIV_ID', 'Id', 'UID_Mathis', 'EFUID'])
+arcpy.management.DeleteIdentical(EFpoints_0308_clean, ['no', 'HYRIV_ID', 'Id', 'UID_Mathis', 'EFUID', 'E_Flow_Loc'])
 
 # Delete useless fields
-for f1 in arcpy.ListFields(EFpoints_1219_clean):
-    if f1.name not in ['OBJECTID_1', 'Shape', 'no', 'Id', 'EFUID', 'UID_Mathis', 'Country', 'Point_shift_mathis', 'Comment_mathis']:
-        arcpy.management.DeleteField(EFpoints_1219_clean, f1.name)
+for f1 in arcpy.ListFields(EFpoints_0308_clean):
+    if f1.name not in ['OBJECTID_1', 'Shape', 'no', 'Id', 'EFUID', 'UID_Mathis',
+                       'Country', 'River_Name', 'River_', 'River', 'E-Flow_Loc',
+                       'E_flow_Location_Name_No_', 'Point_shift_mathis', 'Comment_mathis']:
+        arcpy.management.DeleteField(EFpoints_0308_clean, f1.name)
 
 # Create new points for those that did not have coordinates
 newpts_1028 = {
@@ -793,18 +797,18 @@ newpts_1028 = {
 }
 
 #  Open an InsertCursor and insert the new geometry
-with arcpy.da.InsertCursor(EFpoints_1219_clean, ['EFUID', 'SHAPE@']) as cursor:
+with arcpy.da.InsertCursor(EFpoints_0308_clean, ['EFUID', 'SHAPE@']) as cursor:
     for k in newpts_1028:
         cursor.insertRow((k, newpts_1028[k]))
-with arcpy.da.InsertCursor(EFpoints_1219_clean, ['no', 'SHAPE@']) as cursor:
+with arcpy.da.InsertCursor(EFpoints_0308_clean, ['no', 'SHAPE@']) as cursor:
     cursor.insertRow((40, arcpy.Point(28.1006, -29.4591)))
 
 # Snap to river network
 snapenv = [[hydroriv, 'EDGE', '1000 meters']]
-arcpy.edit.Snap(EFpoints_1219_clean, snapenv)
+arcpy.edit.Snap(EFpoints_0308_clean, snapenv)
 
 # Add coordinates
-arcpy.management.CalculateGeometryAttributes(in_features=EFpoints_1219_clean,
+arcpy.management.CalculateGeometryAttributes(in_features=EFpoints_0308_clean,
                                              geometry_property=[['POINT_X', 'POINT_X'],
                                                                 ['POINT_X', 'POINT_Y']])
 
