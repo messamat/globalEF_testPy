@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from pathlib import Path
 from scipy import interpolate
 import xarray as xr
@@ -209,3 +210,10 @@ def compute_smakhtinef_stats(in_xr, out_dir, out_efnc_basename, n_shift=1, vname
     print("Merge and write-out")
     xr.Dataset(dict(raef=smakhtinef_relative, taef=smakhtinef_taef)).\
         to_netcdf(Path(out_dir, out_efnc_basename))
+
+    del run_fdc_merge_disk
+
+    try:
+        os.remove(Path(out_dir, scratch_file))
+    except OSError:
+        pass
