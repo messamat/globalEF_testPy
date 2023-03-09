@@ -86,7 +86,7 @@ def compute_monthlyef_notsmakhtin(in_xr, out_efnc, vname = 'dis', time_dimname =
 #Generate flow duration curve for each cell
 def compute_xrfdc(in_xr, quant_list, vname = 'dis'):
     fdc_xr = in_xr.quantile(q=quant_list, dim='time'). \
-        rename({"quantile" : "exceedance_prob", vname : "fdc_dis"})
+        rename({"quantile" : "exceedance_prob", vname : f"fdcv"})
     fdc_xr["exceedance_prob"] = 1 - fdc_xr["exceedance_prob"]
     return(fdc_xr)
 
@@ -103,7 +103,7 @@ def compute_xrfdc(in_xr, quant_list, vname = 'dis'):
 # cell = run_fdc_merge.sel(lat=45.75, lon=5.25) #Example with data
 # cell = run_fdc_merge.sel(lat=25.25, lon=22.25) #Example with 0s
 def compute_smakhtinef_ts(cell, n_shift=1, loginterp_padding = 0.00001, vname = 'dis'):
-    fdc = np.round(cell.fdc_dis.values.squeeze() + loginterp_padding, 5)
+    fdc = np.round(cell.fdcv.values.squeeze() + loginterp_padding, 5)
     maxval = cell[vname].values.max()
 
     if (len(np.unique(fdc[~np.isnan(fdc)]))-n_shift) > 1: #If enough unique values in the FDC to interpolate after shifting
