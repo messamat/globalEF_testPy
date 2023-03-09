@@ -70,7 +70,7 @@ for run in lyrsdf['run'].unique():
     if not outpath_ef_notsmakhtin.exists():
         print(f"Processing {outpath_ef_notsmakhtin.name}")
         EF_utils.compute_monthlyef_notsmakhtin(in_xr = run_xr, out_efnc=outpath_ef_notsmakhtin , remove_outliers=True,
-                                               vname = lyrsdf[lyrsdf['run']==run]['var'][0])
+                                               vname = lyrsdf[lyrsdf['run']==run]['var'].unique()[0])
     else:
         print(f"{outpath_ef_notsmakhtin.name} already exists. Skipping...")
 
@@ -81,7 +81,7 @@ for run in lyrsdf['run'].unique():
             print(f"Processing {outpath_ef_smakhtin}")
             EF_utils.compute_smakhtinef_stats(in_xr = run_xr, out_dir = isimp2b_resdir,
                                               out_efnc_basename=outpath_ef_smakhtin, n_shift=shift,
-                                              vname = lyrsdf[lyrsdf['run']==run]['var'][0])
+                                              vname = lyrsdf[lyrsdf['run']==run]['var'].unique()[0])
         else:
             print(f"{outpath_ef_smakhtin} already exists. Skipping...")
 
