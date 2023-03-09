@@ -32,7 +32,12 @@ lyrsdf['monthly_path'] = [Path(isimp2b_resdir,
 lyrsdf['run'] = lyrsdf[['ghm', 'gcm', 'climate_scenario', 'human_scenario', 'var']].apply(
     lambda row: '_'.join(row.values.astype(str)), axis=1)
 
-lyrsdf.apply(EF_utils.aggregate_monthly_fromdf, axis=1)
+if len(lyrsdf[lyrsdf['var']=='dis']) > 0:
+    lyrsdf[lyrsdf['var']=='dis'].apply(EF_utils.aggregate_monthly_fromdf, axis=1, vname='dis')
+
+if len(lyrsdf[lyrsdf['var']=='qtot']) > 0:
+    lyrsdf[lyrsdf['var']=='qtot'].apply(EF_utils.aggregate_monthly_fromdf, axis=1, vname='qtot')
+
 
 #### -------------- Running analysis ----------------------------------------------------------------------------------
 for run in lyrsdf['run'].unique():
@@ -64,7 +69,8 @@ for run in lyrsdf['run'].unique():
     outpath_ef_notsmakhtin = Path(isimp2b_resdir, f'{run}_allefbutsmakhtin.nc4')
     if not outpath_ef_notsmakhtin.exists():
         print(f"Processing {outpath_ef_notsmakhtin.name}")
-        EF_utils.compute_monthlyef_notsmakhtin(in_xr = run_xr, out_efnc=outpath_ef_notsmakhtin , remove_outliers=True)
+        EF_utils.compute_monthlyef_notsmakhtin(in_xr = run_xr, out_efnc=outpath_ef_notsmakhtin , remove_outliers=True,
+                                               vname = lyrsdf[lyrsdf['run']==run]['var'][0])
     else:
         print(f"{outpath_ef_notsmakhtin.name} already exists. Skipping...")
 
@@ -74,7 +80,8 @@ for run in lyrsdf['run'].unique():
         if not Path(isimp2b_resdir, outpath_ef_smakhtin).exists():
             print(f"Processing {outpath_ef_smakhtin}")
             EF_utils.compute_smakhtinef_stats(in_xr = run_xr, out_dir = isimp2b_resdir,
-                                     out_efnc_basename=outpath_ef_smakhtin, n_shift=shift)
+                                              out_efnc_basename=outpath_ef_smakhtin, n_shift=shift,
+                                              vname = lyrsdf[lyrsdf['run']==run]['var'][0])
         else:
             print(f"{outpath_ef_smakhtin} already exists. Skipping...")
 
