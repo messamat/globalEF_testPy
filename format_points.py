@@ -769,13 +769,16 @@ with arcpy.da.UpdateCursor(EFpoints_0308_clean, ['Point_shift_mathis']) as curso
             cursor.deleteRow()
 
 # Delete duplicates
-arcpy.management.DeleteIdentical(EFpoints_0308_clean, ['no', 'HYRIV_ID', 'Id', 'UID_Mathis', 'EFUID', 'E_Flow_Loc'])
+arcpy.management.DeleteIdentical(EFpoints_0308_clean, ['no', 'OBJECTID', 'EFUID', 'id_cuenca', 'UID_Mathis', 'basin_name'])
 
 # Delete useless fields
 for f1 in arcpy.ListFields(EFpoints_0308_clean):
-    if f1.name not in ['OBJECTID_1', 'Shape', 'no', 'Id', 'EFUID', 'UID_Mathis',
-                       'Country', 'River_Name', 'River_', 'River', 'E-Flow_Loc',
-                       'E_flow_Location_Name_No_', 'Point_shift_mathis', 'Comment_mathis']:
+    if f1.name not in [
+        arcpy.Describe(EFpoints_0308_clean).OIDFieldName,
+        'OBJECTID_1', 'Shape', 'no', 'Id', 'EFUID', 'UID_Mathis',
+        'Country', 'River_Name', 'River_', 'River', 'E-Flow_Loc',
+        'E_flow_Location_Name_No_', 'Point_shift_mathis', 'Comment_mathis',
+        'basin_name', 'id_cuenca']:
         arcpy.management.DeleteField(EFpoints_0308_clean, f1.name)
 
 # Create new points for those that did not have coordinates
@@ -810,7 +813,7 @@ arcpy.edit.Snap(EFpoints_0308_clean, snapenv)
 # Add coordinates
 arcpy.management.CalculateGeometryAttributes(in_features=EFpoints_0308_clean,
                                              geometry_property=[['POINT_X', 'POINT_X'],
-                                                                ['POINT_X', 'POINT_Y']])
+                                                                ['POINT_Y', 'POINT_Y']])
 
 # Get formatted GRDC stations from global non-perennial rivers project (Messager et al. 2021) - doesn't work, did it manually
 # gaugesp_out = os.path.join(process_gdb, 'GRDCstations_predbasic800')
