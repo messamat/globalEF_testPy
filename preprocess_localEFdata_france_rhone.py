@@ -256,3 +256,11 @@ efdata_noNA.loc[~efdata_noNA['eflow_selected'].isna(),
 )
 
 
+#Delete intermediate products
+for path in [efpoints_originalwgs84,
+             efpoints_originallambert,
+             efpoints_originallambert_ssbvjoin,
+             efdata_csv,
+             ecostate_last_csv,
+             efpts_efdata_jointab_path]:
+    arcpy.management.Delete(path)
