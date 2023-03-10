@@ -13,9 +13,6 @@ def paste3(*args, sep=", "):
     ret = None if ret == "" else ret
     return ret
 
-# Import the csv file into a pandas dataframe
-ecostate = pd.read_csv(os.path.join(rhonedir, "etat_stations_filtrees.csv"), sep=";", encoding="UTF-8")
-
 efpoints = os.path.join(resdir, "france_preprocessing.gdb", "Rhone_EFpoints_reportsraw")
 ssbv_FRD = os.path.join(rhonedir, "ssbv_FRD.shp")
 
@@ -53,44 +50,44 @@ if not arcpy.Exists(efpoints_originallambert_ssbvjoin):
                                )
 
 # Find the latest file in the directory that matches the pattern
-efdata_xl = pd.read_excel(
-    getfilelist(rhonedir, "France_Rhone_catchment_extracted_.*")[-1])
 efdata_csv = os.path.join(rhonedir, 'efdata_csvforjoin.csv')
-efdata_xl.to_csv(efdata_csv)
+if not arcpy.Exists(efdata_csv):
+    efdata_xl = pd.read_excel(
+        getfilelist(rhonedir, "France_Rhone_catchment_extracted_.*")[-1])
+    efdata_xl.to_csv(efdata_csv)
+
+efpts_efdata_jointab_path = os.path.join(rhonedir, 'efpts_efdata_jointab.csv')
 
 arcpy.MakeFeatureLayer_management(efpoints_originallambert_ssbvjoin, 'efcoors_lambert')
 arcpy.env.qualifiedFieldNames = False
 arcpy.management.AddJoin('efcoors_lambert', in_field='UID_Mathis',
                          join_table=efdata_csv, join_field='UID_Mathis',
                          join_type='KEEP_COMMON')
+arcpy.management.CopyRows('efcoors_lambert', efpts_efdata_jointab_path)
 
+efpts_efdata_jointab = pd.read_csv(efpts_efdata_jointab_path)
+efpts_efdata_jointab.drop(labels=["UID_Mathis_1", "Code_station_1", "Cours_deau_1"],
+                          axis=1,
+                          inplace=True)
+
+#Only needed if efdtata and ecostate were joined and then exported to csv
+efpts_efdata_jointab.columns = pd.unique(
+    [re.sub(r'[ -]+', '_', f.aliasName) for
+     f in arcpy.ListFields('efcoors_lambert') if
+     f.aliasName!='Shape']) #Use np.unique to get rid of second UID
 
 #Only keep the most recent ecological state assessment
+ecostate = pd.read_csv(os.path.join(rhonedir, "etat_stations_filtrees.csv"), sep=";", encoding="UTF-8")
 ecostate_last = ecostate.sort_values(by=['annee']).groupby('numero_station').last()
 ecostate_last_csv = os.path.join(rhonedir, 'ecostate_last.csv')
 ecostate_last.to_csv(ecostate_last_csv)
 
 #Merge EF points with all ecological state assessments on the Masse d'eau
 #Multiple stations per Masse d'eau
-
-############################################################################################REWRITE THIS AS AN OUTER JOIN########################
-arcpy.management.AddJoin('efcoors_lambert', in_field = 'Code_masse_deau',
-                         join_table=ecostate_last_csv, join_field='code_MDO',
-                         join_type='KEEP_ALL')
-
-efdata_ecostate = os.path.join(rhonedir, 'efdata_ecostate.csv')
-if not arcpy.Exists(efdata_ecostate):
-    arcpy.management.CopyRows('efcoors_lambert', efdata_ecostate)
-
 #Compute distance between masse d'eau and ef point
-efdata_ecostate_tab = pd.read_csv(efdata_ecostate).\
-    drop(labels=["UID_Mathis_1", "Code_station_1", "Cours_deau_1"],
-         axis=1) #UID_Mathis was duplicated with arcpy.management.AddJoin('efcoors_lambert', in_field='UID_Mathis', join_table=efdata_csv)
-
-efdata_ecostate_tab.columns = pd.unique(
-    [re.sub(r'[ -]+', '_', f.aliasName) for
-     f in arcpy.ListFields('efcoors_lambert') if
-     f.aliasName!='Shape']) #Use np.unique to get rid of second UID
+efdata_ecostate_tab = efpts_efdata_jointab.merge(ecostate_last, how='outer',
+                    left_on='Code_masse_deau', right_on='code_MDO')
+#UID_Mathis was duplicated with arcpy.management.AddJoin('efcoors_lambert', in_field='UID_Mathis', join_table=efdata_csv)
 
 efdata_ecostate_tab_sub = efdata_ecostate_tab.dropna(axis=0, how='any',
                                                      subset=['Longitude_original_Lambert',
