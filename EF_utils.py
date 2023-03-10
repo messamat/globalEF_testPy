@@ -27,33 +27,53 @@ def aggregate_monthly_fromdf(row, remove_negative_values=True, vname = 'dis'):
     else:
         print(f"{row['monthly_path']} already exists. Skipping... ")
 
+def remove_monthly_outliers(in_xr):
+    # Remove outliers - monthly flow values over mean+3sd or under mean-3sd
+    in_xr_nooutliers = in_xr.where(
+        in_xr.groupby('month') <= ((in_xr.groupby('month').mean(dim='time') +
+                                    3 * in_xr.groupby('month').std(dim='time')))
+    ).where(
+        in_xr.groupby('month') >= ((in_xr.groupby('month').mean(dim='time') -
+                                    3 * in_xr.groupby('month').std(dim='time')))
+    )
+    return(in_xr_nooutliers)
+
 #### -------------- Function to compute Tennant, Q90Q50, Tessmann and VMF eflows ---------------------------------------------------
 def compute_monthlyef_notsmakhtin(in_xr, out_efnc, vname = 'dis', time_dimname = 'time',
-                                  lat_dimname = 'lat', lon_dimname = 'lon', remove_outliers = True):
+                                  lat_dimname = 'lat', lon_dimname = 'lon', remove_outliers = True,
+                                  out_mmf=None, out_maf=None
+                                  ):
+
     # Remove outliers - monthly flow values over mean+3sd or under mean-3sd
     if remove_outliers:
         run_nooutliers = spatiotemporal_chunk_optimized_acrosstime(
-            in_xr.where(
-                in_xr.groupby('month') <= ((in_xr.groupby('month').mean(dim='time') +
-                                            3 * in_xr.groupby('month').std(dim='time')))
-            ).where(
-                in_xr.groupby('month') >= ((in_xr.groupby('month').mean(dim='time') -
-                                            3 * in_xr.groupby('month').std(dim='time')))
-            ),
+            remove_monthly_outliers(in_xr),
             time_dimname = time_dimname,
             lat_dimname = lat_dimname,
             lon_dimname = lon_dimname
         )
     else:
-        run_nooutliers = spatiotemporal_chunk_optimized_acrosstime(in_xr,
-                                                                   time_dimname = time_dimname,
-                                                                   lat_dimname = lat_dimname,
-                                                                   lon_dimname = lon_dimname)
+        run_nooutliers = spatiotemporal_chunk_optimized_acrosstime(
+            in_xr,
+            time_dimname = time_dimname,
+            lat_dimname = lat_dimname,
+            lon_dimname = lon_dimname)
 
     # Compute mean monthly flow (mmf)
-    run_mmf = run_nooutliers.groupby('month').mean(dim='time')
+    if out_mmf:
+        if not out_mmf.exists():
+            run_mmf = run_nooutliers.groupby('month'). \
+                mean(dim='time')
+            print(f'Writing {out_mmf}...')
+            run_mmf.to_netcdf(out_mmf)
+
     # Compute mean annual flow (maf)
     run_maf = run_nooutliers.mean(dim='time')
+    if out_maf:
+        if not out_maf.exists():
+            print(f'Writing {out_maf}...')
+            run_maf.to_netcdf(out_maf)
+
     # Compute Q90
     run_q90 = run_nooutliers.quantile(q=0.1, dim='time')
     # Compute Q50
@@ -86,7 +106,7 @@ def compute_monthlyef_notsmakhtin(in_xr, out_efnc, vname = 'dis', time_dimname =
 #Generate flow duration curve for each cell
 def compute_xrfdc(in_xr, quant_list, vname = 'dis'):
     fdc_xr = in_xr.quantile(q=quant_list, dim='time'). \
-        rename({"quantile" : "exceedance_prob", vname : f"fdcv"})
+        rename({"quantile" : "exceedance_prob", vname : "fdcv"})
     fdc_xr["exceedance_prob"] = 1 - fdc_xr["exceedance_prob"]
     return(fdc_xr)
 
