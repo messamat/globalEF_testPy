@@ -16,6 +16,7 @@ import zipfile
 
 arcpy.CheckOutExtension('Spatial')
 arcpy.env.overwriteOutput = True
+arcpy.env.qualifiedFieldNames = False
 
 #Get current root directory
 def get_root_fromsrcdir():
