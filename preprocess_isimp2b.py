@@ -89,16 +89,19 @@ for run in lyrsdf_monthly['run'].unique():
 
     #~~~~~~~~~~~~~~  COMPUTE EF based on all methods but Smakhtin's ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     outpath_ef_notsmakhtin = Path(isimp2b_resdir, f'{run}_allefbutsmakhtin.nc4')
+    outpath_mmf = Path(isimp2b_resdir, f'{run}_mmf.nc4')
+    outpath_maf = Path(isimp2b_resdir, f'{run}_maf.nc4')
     #if not outpath_ef_notsmakhtin.exists():
     print(f"Processing {outpath_ef_notsmakhtin.name}")
-    EF_utils.compute_monthlyef_notsmakhtin(in_xr = run_xr,
-                                           out_efnc=outpath_ef_notsmakhtin,
-                                           remove_outliers=True,
-                                           vname = lyrsdf_monthly[lyrsdf_monthly['run']==run]['var'].unique()[0],
-                                           out_mmf=Path(isimp2b_resdir, f'{run}_mmf.nc4'),
-                                           out_maf=Path(isimp2b_resdir, f'{run}_maf.nc4'))
-    # else:
-    #     print(f"{outpath_ef_notsmakhtin.name} already exists. Skipping...")
+    if not all([outpath_ef_notsmakhtin.exists(), outpath_mmf.exists(), outpath_maf.exists()]):
+        EF_utils.compute_monthlyef_notsmakhtin(in_xr = run_xr,
+                                               out_efnc=outpath_ef_notsmakhtin,
+                                               remove_outliers=True,
+                                               vname = lyrsdf_monthly[lyrsdf_monthly['run']==run]['var'].unique()[0],
+                                               out_mmf= outpath_mmf,
+                                               out_maf=outpath_maf)
+    else:
+        print(f"{outpath_ef_notsmakhtin.name} already exists. Skipping...")
 
     #~~~~~~~~~~~~~~  COMPUTE EF based on Smakhtin's method for EMCs A-D  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     for shift, emc in enumerate(['a', 'b', 'c', 'd']):
@@ -109,6 +112,7 @@ for run in lyrsdf_monthly['run'].unique():
                                               out_dir = isimp2b_resdir,
                                               out_efnc_basename=outpath_ef_smakhtin,
                                               n_shift=shift+1,
-                                              vname = lyrsdf_monthly[lyrsdf_monthly['run']==run]['var'].unique()[0])
+                                              vname = lyrsdf_monthly[lyrsdf_monthly['run']==run]['var'].unique()[0],
+                                              rechunk_alongtime=True)
         else:
             print(f"{outpath_ef_smakhtin} already exists. Skipping...")

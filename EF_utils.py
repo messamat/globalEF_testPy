@@ -195,8 +195,8 @@ def compute_smakhtinef_ts(cell, n_shift=1, loginterp_padding = 0.00001, vname = 
 # check = compute_smakhtinef_ts(cell)
 
 def compute_smakhtinef_stats(in_xr, out_dir, out_efnc_basename, n_shift=1, vname='dis',
-                             lat_dimname='lat', lon_dimname='lon',
-                             scratch_file = 'scratch.nc4'):
+                             lat_dimname='lat', lon_dimname='lon', rechunk=False,
+                             scratch_file = 'scratch.nc4', rechunk_alongtime=False):
     #Compute time series of e-flow based on Smakthin flow duration curve method
 
     #Quantiles used in deriving flow duration curve
@@ -205,6 +205,9 @@ def compute_smakhtinef_stats(in_xr, out_dir, out_efnc_basename, n_shift=1, vname
 
     #Generate flow duration curve for each cell
     print("Compute flow duration curve for each cell")
+    if rechunk_alongtime == True:
+        in_xr = in_xr.chunk({'time': in_xr.dims['time']})
+
     fdc_xr = compute_xrfdc(in_xr = in_xr,
                            quant_list = smakthin_quantlist,
                            vname = vname)
