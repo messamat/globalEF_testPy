@@ -108,7 +108,7 @@ for run in lyrsdf_monthly['run'].unique():
             EF_utils.compute_smakhtinef_stats(in_xr = run_xr,
                                               out_dir = isimp2b_resdir,
                                               out_efnc_basename=outpath_ef_smakhtin,
-                                              n_shift=shift,
+                                              n_shift=shift+1,
                                               vname = lyrsdf_monthly[lyrsdf_monthly['run']==run]['var'].unique()[0])
         else:
             print(f"{outpath_ef_smakhtin} already exists. Skipping...")
