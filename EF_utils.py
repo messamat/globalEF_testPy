@@ -123,7 +123,7 @@ def compute_xrfdc(in_xr, quant_list, vname = 'dis'):
 # cell = run_fdc_merge.sel(lat=45.75, lon=5.25) #Example with data
 # cell = run_fdc_merge.sel(lat=25.25, lon=22.25) #Example with 0s
 def compute_smakhtinef_ts(cell, n_shift=1, loginterp_padding = 0.00001, vname = 'dis', digits=6):
-    fdc = np.round(cell.fdc_dis.values.squeeze() + loginterp_padding, digits)
+    fdc = np.round(cell.fdcv.values.squeeze() + loginterp_padding, digits)
     maxval = cell[vname].values.max()
 
     if (len(np.unique(fdc[~np.isnan(fdc)]))-n_shift) > 1: #If enough unique values in the FDC to interpolate after shifting
