@@ -102,8 +102,10 @@ def compute_xrfdc(in_xr, quant_list, vname = 'dis'):
 # cell = run_fdc_merge.sel(lat=69.75, lon=-169.25) #Example with only no data (in the sea)
 # cell = run_fdc_merge.sel(lat=45.75, lon=5.25) #Example with data
 # cell = run_fdc_merge.sel(lat=25.25, lon=22.25) #Example with 0s
-def compute_smakhtinef_ts(cell, n_shift=1, loginterp_padding = 0.00001, vname = 'dis'):
-    fdc = np.round(cell.fdc_dis.values.squeeze() + loginterp_padding, 5)
+
+#cell = run_fdc_merge_disk.isel(longitude=350, latitude=60)
+def compute_smakhtinef_ts(cell, n_shift=1, loginterp_padding = 0.00001, vname = 'dis', round=6):
+    fdc = np.round(cell.fdc_dis.values.squeeze() + loginterp_padding, round)
     maxval = cell[vname].values.max()
 
     if (len(np.unique(fdc[~np.isnan(fdc)]))-n_shift) > 1: #If enough unique values in the FDC to interpolate after shifting
@@ -191,20 +193,25 @@ def compute_smakhtinef_stats(in_xr, out_dir, out_efnc_basename, n_shift=1, vname
     print("Compute e-flow values for each cell")
     smakhtinef = run_fdc_merge_disk.stack(gridcell=[lat_dimname, lon_dimname]).\
         groupby("gridcell").\
-        map(compute_smakhtinef_ts, args=[n_shift, 0.00001, vname]).\
+        map(compute_smakhtinef_ts, args=[n_shift, 0.000001, vname, 6]).\
         unstack('gridcell')
     smakhtinef['time'] = run_fdc_merge_disk.time
+    smakhtinef.to_netcdf(Path(out_dir, f'smakthin_ef_{["a", "b", "c", "d"][n_shift-1]}_test.nc4'))
 
     #Compute e-flow relative to MAF
     print("Compute e-flow relative to MAF")
     run_maf = run_fdc_merge_disk[vname].mean(dim='time') #Mean Flow
     smakhtinef_mean = xr.merge([run_maf,
-                                  xr.Dataset(dict(ef_a_mean = smakhtinef.mean(dim='time').round(5)))])
-    smakhtinef_relative = xr.where((smakhtinef_mean[vname].round(decimals=5) > 0) | (np.isnan(smakhtinef_mean[vname])),
-                                     (smakhtinef_mean.ef_a_mean/smakhtinef_mean[vname].round(decimals=5)).values, 1)
+                                  xr.Dataset(dict(ef_mean = smakhtinef.mean(dim='time')))])
+    smakhtinef_relative = xr.where((smakhtinef_mean[vname].round(decimals=6) > 0) | (np.isnan(smakhtinef_mean[vname])),
+                                     (smakhtinef_mean.ef_mean.round(decimals=6)/
+                                      smakhtinef_mean[vname].round(decimals=6)).values, 1)
+    #smakhtinef_relative.to_netcdf(Path(out_dir, 'smakthinef_relative.nc4'))
+
     #Compute total annual e-flow
     print("Compute total annual e-flow")
     smakhtinef_taef = smakhtinef.groupby('month').mean(skipna=True).sum(dim='month', skipna=False)
+    #smakhtinef_taef.to_netcdf(Path(out_dir, 'smakhtinef_taef.nc4'))
 
     #Merge and write out
     print("Merge and write-out")
