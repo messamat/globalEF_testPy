@@ -66,6 +66,8 @@ def compute_monthlyef_notsmakhtin(in_xr, out_efnc, vname = 'dis', time_dimname =
                 mean(dim='time')
             print(f'Writing {out_mmf}...')
             run_mmf.to_netcdf(out_mmf)
+        else:
+            run_mmf = xr.open_dataset(out_mmf)
 
     # Compute mean annual flow (maf)
     run_maf = run_nooutliers.mean(dim='time')
@@ -73,6 +75,8 @@ def compute_monthlyef_notsmakhtin(in_xr, out_efnc, vname = 'dis', time_dimname =
         if not out_maf.exists():
             print(f'Writing {out_maf}...')
             run_maf.to_netcdf(out_maf)
+        else:
+            run_maf = xr.open_dataset(out_maf)
 
     # Compute Q90
     run_q90 = run_nooutliers.quantile(q=0.1, dim='time')
