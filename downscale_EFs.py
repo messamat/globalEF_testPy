@@ -48,14 +48,14 @@ def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
                  integer_multiplier,lat_dimname = 'lat', lon_dimname = 'lon', time_dimname = 'month',
                  sum_time = True):
 
-    root_name = re.sub('-', '_', os.path.splitext(in_ncpath.name)[0])
-
     pred_nc = xr.open_dataset(in_ncpath)
+    root_name = re.sub('[-]', '_', in_ncpath.stem)
 
-    # Crop xarray and convert it to integer
-    if not all([np.issubdtype(pred_nc[v].values.dtype, np.integer)
+    # Crop xarray, sum across all months, and convert it to integer
+    if not all([np.issubdtype(pred_nc[v].values.dtype, np.integer) #If all variables in nc4 are not in integer format
                 for v in list(pred_nc.data_vars)]):
         out_croppedintnc = os.path.join(out_resdir, f"{root_name}_croppedint.nc")
+
         if not arcpy.Exists(out_croppedintnc):
             print(f"Producing {out_croppedintnc}")
             templateext = arcpy.Describe(in_template_extentlyr).extent
@@ -71,14 +71,14 @@ def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
         if not arcpy.Exists(out_croppedint):
             print(f"Saving {out_croppedintnc} to {out_croppedint}")
 
-            time_dimname = time_dimname if time_dimname in list(pred_nc.dims) else None
+            #time_dimname = time_dimname if time_dimname in list(pred_nc.dims) else None
 
             arcpy.md.MakeNetCDFRasterLayer(in_netCDF_file=out_croppedintnc,
                                            variable=in_var,
                                            x_dimension=lon_dimname,
                                            y_dimension=lat_dimname,
                                            out_raster_layer='tmpras_check',
-                                           band_dimension=time_dimname,
+                                           #band_dimension=time_dimname,
                                            value_selection_method='BY_VALUE',
                                            cell_registration='CENTER')
             output_ras = Raster('tmpras_check')
@@ -101,7 +101,7 @@ def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
                                       resampling_type='BILINEAR')
 
         if not arcpy.Exists(out_grid):
-            print(f"Running flow accumulation for {root_name}, {in_var}, month {i+1}")
+            print(f"Running flow accumulation for {root_name}, {in_var}")
             # Multiply input grid by pixel area
             start = time.time()
             valueXarea = Times(Raster(out_rsmpbi), Raster(pxarea_grid))
@@ -113,7 +113,6 @@ def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
             UplandGrid.save(out_grid)
             end = time.time()
             print(end - start)
-
 
 lyrsdf_qtot.apply(lambda row:
                   flowacc_efnc(
