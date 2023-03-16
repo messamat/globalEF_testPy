@@ -17,7 +17,6 @@ globwb_resdir = Path(resdir, 'PCR_GLOBWB_2019')
 #Geometry rasters
 geomdir = os.path.join(datdir, 'HydroATLAS', 'HydroATLAS_Geometry')
 pxarea_grid = os.path.join(geomdir, 'Accu_area_grids', 'pixel_area_skm_15s.gdb', 'px_area_skm_15s')
-uparea_grid = os.path.join(geomdir, 'Accu_area_grids', 'upstream_area_skm_15s.gdb', 'up_area_skm_15s')
 flowdir_grid = os.path.join(geomdir, 'Flow_directions' ,'flow_dir_15s_global.gdb', 'flow_dir_15s')
 
 
@@ -38,13 +37,13 @@ lyrsdf_qtot = pd.DataFrame.from_dict(
     columns=['ghm', 'gcm', 'climate_scenario', 'human_scenario',
              'var',  'eftype', 'emc']
 ). \
-    reset_index().\
+    reset_index(). \
     rename(columns={'index' : 'path'})
 lyrsdf_qtot = lyrsdf_qtot[lyrsdf_qtot['var']=='qtot'] #Only keep runoff
 
 
 def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
-                 pxarea_grid, uparea_grid, flowdir_grid, out_resdir, out_resgdb, scratchgdb,
+                 pxarea_grid, flowdir_grid, out_resdir, out_resgdb, scratchgdb,
                  integer_multiplier,lat_dimname = 'lat', lon_dimname = 'lon', time_dimname = 'month',
                  sum_time = True):
 
@@ -105,12 +104,11 @@ def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
             # Multiply input grid by pixel area
             start = time.time()
             valueXarea = Times(Raster(out_rsmpbi), Raster(pxarea_grid))
-            outFlowAccumulation = FlowAccumulation(in_flow_direction_raster=flowdir_grid,
-                                                   in_weight_raster=Raster(valueXarea),
-                                                   data_type="FLOAT")
-            outFlowAccumulation_2 = Plus(outFlowAccumulation, valueXarea)
-            UplandGrid = Int((Divide(outFlowAccumulation_2, Raster(uparea_grid))) + 0.5)
-            UplandGrid.save(out_grid)
+            outflowacc = FlowAccumulation(in_flow_direction_raster=flowdir_grid,
+                                          in_weight_raster=Raster(valueXarea),
+                                          data_type="FLOAT")
+            outflowacc_m3s = Int(Divide(outflowacc, 10**9)+0.5)
+            outflowacc_m3s.save(out_grid)
             end = time.time()
             print(end - start)
 
@@ -120,7 +118,6 @@ lyrsdf_qtot.apply(lambda row:
                       in_template_extentlyr = pxarea_grid,
                       in_template_resamplelyr = pxarea_grid,
                       pxarea_grid=pxarea_grid,
-                      uparea_grid=uparea_grid,
                       flowdir_grid=flowdir_grid,
                       out_resdir = isimp2b_resdir,
                       out_resgdb = qtotacc15s_gdb,
