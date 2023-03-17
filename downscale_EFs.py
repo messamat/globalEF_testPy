@@ -27,26 +27,6 @@ pathcheckcreate(scratchgdb)
 qtotacc15s_gdb = os.path.join(resdir, 'isimp2_qtot_accumulated15s.gdb') #GDB to contain downsampled rasters
 pathcheckcreate(qtotacc15s_gdb)
 
-#-------------------------------------------------- PROCESS ISIMP2B---------------------------------------------------------------------
-# Create a searchable dataframe of monthly and annual statistics and global EF computations for runoff
-lyrsdf_qtot = pd.DataFrame.from_dict(
-    {path: path.stem.split('_') for path in
-     isimp2b_resdir.glob('*[.]nc4') if
-     re.search(r"((smakhtinef_[abcd])|(allefbutsmakhtin)|mmf|maf)", str(path))},
-    orient='index',
-    columns=['ghm', 'gcm', 'climate_scenario', 'human_scenario',
-             'var',  'eftype', 'emc']
-). \
-    reset_index(). \
-    rename(columns={'index' : 'path'})
-lyrsdf_qtot = lyrsdf_qtot[lyrsdf_qtot['var']=='qtot'] #Only keep runoff
-
-lyrsdf_qtot['sum_time'] = np.where(
-    lyrsdf_qtot.eftype.isin(['mmf', 'maf', 'smakhtinef']),
-    False,
-    True)
-
-
 def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
                  pxarea_grid, flowdir_grid, out_resdir, out_resgdb, scratchgdb,
                  integer_multiplier,lat_dimname = 'lat', lon_dimname = 'lon', time_dimname = 'month',
@@ -132,23 +112,49 @@ def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
             end = time.time()
             print(end - start)
 
-lyrsdf_qtot.apply(lambda row:
-                  flowacc_efnc(
-                      in_ncpath = row['path'],
-                      in_template_extentlyr = pxarea_grid,
-                      in_template_resamplelyr = pxarea_grid,
-                      pxarea_grid=pxarea_grid,
-                      flowdir_grid=flowdir_grid,
-                      out_resdir = isimp2b_resdir,
-                      out_resgdb = qtotacc15s_gdb,
-                      scratchgdb = scratchgdb,
-                      lat_dimname = 'lat',
-                      lon_dimname = 'lon',
-                      time_dimname = 'month',
-                      sum_time = row['sum_time'],
-                      integer_multiplier = 10**9),
-                  axis=1
-                  )
+#-------------------------------------------------- PROCESS ISIMP2B-----------------------------------------------------
+# Create a searchable dataframe of monthly and annual statistics and global EF computations for isimp2b runoff
+lyrsdf_qtot_isimp2b = pd.DataFrame.from_dict(
+    {path: path.stem.split('_') for path in
+     isimp2b_resdir.glob('*[.]nc4') if
+     re.search(r"((smakhtinef_[abcd])|(allefbutsmakhtin)|mmf|maf)", str(path))},
+    orient='index',
+    columns=['ghm', 'gcm', 'climate_scenario', 'human_scenario',
+             'var',  'eftype', 'emc']
+). \
+    reset_index(). \
+    rename(columns={'index' : 'path'})
+lyrsdf_qtot_isimp2b = lyrsdf_qtot_isimp2b[lyrsdf_qtot_isimp2b['var']=='qtot'] #Only keep runoff
+
+lyrsdf_qtot_isimp2b['sum_time'] = np.where(
+    lyrsdf_qtot_isimp2b.eftype.isin(['mmf', 'maf', 'smakhtinef']),
+    False,
+    True)
+
+lyrsdf_qtot_isimp2b.apply(lambda row:
+                          flowacc_efnc(
+                              in_ncpath = row['path'],
+                              in_template_extentlyr = pxarea_grid,
+                              in_template_resamplelyr = pxarea_grid,
+                              pxarea_grid=pxarea_grid,
+                              flowdir_grid=flowdir_grid,
+                              out_resdir = isimp2b_resdir,
+                              out_resgdb = qtotacc15s_gdb,
+                              scratchgdb = scratchgdb,
+                              lat_dimname = 'lat',
+                              lon_dimname = 'lon',
+                              time_dimname = 'month',
+                              sum_time = row['sum_time'],
+                              integer_multiplier = 10**9),
+                          axis=1
+                          )
+
+#-------------------------------------------------- PROCESS PCR_GLOBWB -------------------------------------------------
+
+
+
+
+
 
 #h08_hadgem2_es_picontrol_1860soc_qtot_allefbutsmakhtin_croppedint.nc
 #in_ncpath = Path('D:/IWMI_GEFIStest/results/isimp2b/h08_hadgem2-es_picontrol_1860soc_dis_allefbutsmakhtin.nc4')
