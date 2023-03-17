@@ -41,6 +41,11 @@ lyrsdf_qtot = pd.DataFrame.from_dict(
     rename(columns={'index' : 'path'})
 lyrsdf_qtot = lyrsdf_qtot[lyrsdf_qtot['var']=='qtot'] #Only keep runoff
 
+lyrsdf_qtot['sum_time'] = np.where(
+    lyrsdf_qtot.eftype.isin(['mmf', 'maf', 'smakhtinef']),
+    False,
+    True)
+
 
 def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
                  pxarea_grid, flowdir_grid, out_resdir, out_resgdb, scratchgdb,
@@ -58,10 +63,25 @@ def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
         if not arcpy.Exists(out_croppedintnc):
             print(f"Producing {out_croppedintnc}")
             templateext = arcpy.Describe(in_template_extentlyr).extent
-            cropdict = {lon_dimname: slice(templateext.XMin, templateext.XMax),
-                        lat_dimname: slice(templateext.YMax, templateext.YMin)}  # Lat is from north to south so need to reverse slice order
+
+            # Reverse slice order if lat is from north to south or lon is from east to west
+            cropdict = {
+                lon_dimname:
+                    slice(templateext.XMin, templateext.XMax) if
+                    (pred_nc[lon_dimname][0] < pred_nc[lon_dimname][-1]) else
+                    slice(templateext.XMax, templateext.XMin),
+                lat_dimname:
+                    slice(templateext.YMin, templateext.YMax) if
+                    (pred_nc[lat_dimname][0] < pred_nc[lat_dimname][-1]) else
+                    slice(templateext.YMax, templateext.YMin)
+            }
             pred_nc_cropped = pred_nc.loc[cropdict]
-            (pred_nc_cropped.sum(dim='month', skipna=False) * integer_multiplier).astype(np.intc).to_netcdf(out_croppedintnc)
+
+            if sum_time:
+                (pred_nc_cropped.sum(dim=time_dimname,
+                                     skipna=False) * integer_multiplier).astype(np.intc).to_netcdf(out_croppedintnc)
+            else:
+                (pred_nc_cropped * integer_multiplier).astype(np.intc).to_netcdf(out_croppedintnc)
     else:
         out_croppedintnc = in_ncpath
 
@@ -107,7 +127,7 @@ def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
             outflowacc = FlowAccumulation(in_flow_direction_raster=flowdir_grid,
                                           in_weight_raster=Raster(valueXarea),
                                           data_type="FLOAT")
-            outflowacc_m3s = Int(Divide(outflowacc, 10**9)+0.5)
+            outflowacc_m3s = Int(Divide(outflowacc, 10**3)+0.5)
             outflowacc_m3s.save(out_grid)
             end = time.time()
             print(end - start)
@@ -125,7 +145,24 @@ lyrsdf_qtot.apply(lambda row:
                       lat_dimname = 'lat',
                       lon_dimname = 'lon',
                       time_dimname = 'month',
-                      sum_time = True,
+                      sum_time = row['sum_time'],
                       integer_multiplier = 10**9),
                   axis=1
                   )
+
+#h08_hadgem2_es_picontrol_1860soc_qtot_allefbutsmakhtin_croppedint.nc
+#in_ncpath = Path('D:/IWMI_GEFIStest/results/isimp2b/h08_hadgem2-es_picontrol_1860soc_dis_allefbutsmakhtin.nc4')
+# row  =lyrsdf_qtot.iloc[7,:]
+# in_ncpath = row['path']
+# in_template_extentlyr = pxarea_grid
+# in_template_resamplelyr = pxarea_grid
+# pxarea_grid = pxarea_grid
+# flowdir_grid = flowdir_grid
+# out_resdir = isimp2b_resdir
+# out_resgdb = qtotacc15s_gdb
+# scratchgdb = scratchgdb
+# lat_dimname = 'lat'
+# lon_dimname = 'lon'
+# time_dimname = 'month'
+# sum_time = row['sum_time']
+# integer_multiplier = 10 ** 9
