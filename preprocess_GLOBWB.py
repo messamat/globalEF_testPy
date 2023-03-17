@@ -1,10 +1,4 @@
-import re
-
 from globalEF_comparison_setup import * #See this module for directory structure
-#import time
-import xarray as xr
-#import cProfile as profile
-#import pstats
 from EF_utils import *
 
 #Set up structure
@@ -60,6 +54,8 @@ def split_netcdf(in_netcdf, factor,  out_pathroot, lat_dimname='latitude', lon_d
 
 def preprocess_GLOBWB(in_path, in_var, out_resdir):
     outpath_ef_notsmakhtin = Path(out_resdir, f'{in_path.name.split(".")[0]}_allefbutsmakhtin.nc4')
+    outpath_mmf = Path(out_resdir, f'{in_path.name.split(".")[0]}_mmf.nc4')
+    outpath_maf = Path(out_resdir, f'{in_path.name.split(".")[0]}_maf.nc4')
 
     # dis_xr = spatiotemporal_chunk_optimized_acrosstime(
     #     xr.open_dataset(in_path),
@@ -79,7 +75,9 @@ def preprocess_GLOBWB(in_path, in_var, out_resdir):
                                       lat_dimname='latitude',
                                       lon_dimname='longitude',
                                       time_dimname='time',
-                                      remove_outliers=True)
+                                      remove_outliers=True,
+                                      out_mmf=outpath_mmf,
+                                      out_maf=outpath_maf)
     else:
         print(f"{outpath_ef_notsmakhtin.name} already exists. Skipping...")
 
@@ -130,7 +128,7 @@ smakthinef_dis_pathlist = preprocess_GLOBWB(in_path=discharge_path,
                                             in_var='discharge',
                                             out_resdir = globwb_resdir)
 smakthinef_qtot_pathlist = preprocess_GLOBWB(in_path=runoff_path,
-                                             in_var='total_runoff',
+                                             in_var='land_surface_runoff',
                                              out_resdir = globwb_resdir)
 
 
