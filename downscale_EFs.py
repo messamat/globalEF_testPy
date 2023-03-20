@@ -24,8 +24,11 @@ flowdir_grid = os.path.join(geomdir, 'Flow_directions' ,'flow_dir_15s_global.gdb
 scratchgdb = os.path.join(resdir, 'scratch.gdb')
 pathcheckcreate(scratchgdb)
 
-qtotacc15s_gdb = os.path.join(resdir, 'isimp2_qtot_accumulated15s.gdb') #GDB to contain downsampled rasters
-pathcheckcreate(qtotacc15s_gdb)
+isimp_qtotacc15s_gdb = os.path.join(resdir, 'isimp2_qtot_accumulated15s.gdb') #GDB to contain downsampled rasters
+pathcheckcreate(isimp_qtotacc15s_gdb)
+
+globwb_qtotacc15s_gdb = os.path.join(resdir, 'globwb_qtot_accumulated15s.gdb')
+pathcheckcreate(globwb_qtotacc15s_gdb)
 
 def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
                  pxarea_grid, flowdir_grid, out_resdir, out_resgdb, scratchgdb,
@@ -66,51 +69,92 @@ def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
         out_croppedintnc = in_ncpath
 
     for in_var in list(pred_nc.data_vars):
-        out_croppedint = os.path.join(scratchgdb, f"{root_name}_{in_var}_croppedint")
-        if not arcpy.Exists(out_croppedint):
-            print(f"Saving {out_croppedintnc} to {out_croppedint}")
+        if in_var != 'raef':
+            out_croppedint = os.path.join(scratchgdb, f"{root_name}_{in_var}_croppedint")
+            if not arcpy.Exists(out_croppedint):
+                print(f"Saving {out_croppedintnc} to {out_croppedint}")
 
-            #time_dimname = time_dimname if time_dimname in list(pred_nc.dims) else None
+                #time_dimname = time_dimname if time_dimname in list(pred_nc.dims) else None
 
-            arcpy.md.MakeNetCDFRasterLayer(in_netCDF_file=out_croppedintnc,
-                                           variable=in_var,
-                                           x_dimension=lon_dimname,
-                                           y_dimension=lat_dimname,
-                                           out_raster_layer='tmpras_check',
-                                           #band_dimension=time_dimname,
-                                           value_selection_method='BY_VALUE',
-                                           cell_registration='CENTER')
-            output_ras = Raster('tmpras_check')
-            Con(output_ras >= 0, output_ras).save(out_croppedint)
+                arcpy.md.MakeNetCDFRasterLayer(in_netCDF_file=out_croppedintnc,
+                                               variable=in_var,
+                                               x_dimension=lon_dimname,
+                                               y_dimension=lat_dimname,
+                                               out_raster_layer='tmpras_check',
+                                               #band_dimension=time_dimname,
+                                               value_selection_method='BY_VALUE',
+                                               cell_registration='CENTER')
+                output_ras = Raster('tmpras_check')
+                Con(output_ras >= 0, output_ras).save(out_croppedint)
 
-        # Set environment
-        arcpy.env.extent = arcpy.env.snapRaster = in_template_resamplelyr
+            # Set environment
+            arcpy.env.extent = arcpy.env.snapRaster = in_template_resamplelyr
 
 
-        # Run weighting
-        out_rsmpbi = os.path.join(scratchgdb, f"{root_name}_{in_var}_rsmpbi")
-        out_grid = os.path.join(out_resgdb, f"{root_name}_{in_var}_acc15s")
+            # Run weighting
+            out_rsmpbi = os.path.join(scratchgdb, f"{root_name}_{in_var}_rsmpbi")
+            out_grid = os.path.join(out_resgdb, f"{root_name}_{in_var}_acc15s")
 
-        # Resample
-        if not arcpy.Exists(out_rsmpbi):
-            print(f"Resampling {out_croppedint}")
-            arcpy.management.Resample(in_raster=out_croppedint,
-                                      out_raster=out_rsmpbi,
-                                      cell_size=arcpy.Describe(in_template_resamplelyr).MeanCellWidth,
-                                      resampling_type='BILINEAR')
+            # Resample
+            if not arcpy.Exists(out_rsmpbi):
+                print(f"Resampling {out_croppedint}")
+                arcpy.management.Resample(in_raster=out_croppedint,
+                                          out_raster=out_rsmpbi,
+                                          cell_size=arcpy.Describe(in_template_resamplelyr).MeanCellWidth,
+                                          resampling_type='BILINEAR')
 
-        if not arcpy.Exists(out_grid):
-            print(f"Running flow accumulation for {root_name}, {in_var}")
-            # Multiply input grid by pixel area
-            start = time.time()
-            valueXarea = Times(Raster(out_rsmpbi), Raster(pxarea_grid))
-            outflowacc = FlowAccumulation(in_flow_direction_raster=flowdir_grid,
-                                          in_weight_raster=Raster(valueXarea),
-                                          data_type="FLOAT")
-            outflowacc_m3s = Int(Divide(outflowacc, 10**3)+0.5)
-            outflowacc_m3s.save(out_grid)
-            end = time.time()
-            print(end - start)
+            if not arcpy.Exists(out_grid):
+                print(f"Running flow accumulation for {root_name}, {in_var}")
+                # Multiply input grid by pixel area
+                start = time.time()
+                valueXarea = Times(Raster(out_rsmpbi), Raster(pxarea_grid))
+                outflowacc = FlowAccumulation(in_flow_direction_raster=flowdir_grid,
+                                              in_weight_raster=Raster(valueXarea),
+                                              data_type="FLOAT")
+                outflowacc_m3s = Int(Divide(outflowacc, 10**3)+0.5)
+                outflowacc_m3s.save(out_grid)
+                end = time.time()
+                print(end - start)
+
+#-------------------------------------------------- PROCESS PCR_GLOBWB -------------------------------------------------
+lyrslist_qtot_globwb_nosum = [Path(globwb_resdir, bname) for bname in
+                              ["runoff_monthTot_output_1958-01-31_to_2015-12-31_maf.nc4",
+                               "runoff_monthTot_output_1958-01-31_to_2015-12-31_mmf.nc4"] + \
+                              [f"PCR_GLOBWB_runoff_smakthinef_{letter}.nc4" for letter in ['a', 'b', 'c', 'd']]
+                              ]
+
+
+#######TOTAL OVER THE YEAR
+flowacc_efnc(
+    in_ncpath=Path(globwb_resdir, "runoff_monthTot_output_1958-01-31_to_2015-12-31_allefbutsmakhtin.nc4"),
+    in_template_extentlyr=pxarea_grid,
+    in_template_resamplelyr=pxarea_grid,
+    pxarea_grid=pxarea_grid,
+    flowdir_grid=flowdir_grid,
+    out_resdir=globwb_resdir,
+    out_resgdb=globwb_qtotacc15s_gdb,
+    scratchgdb=scratchgdb,
+    lat_dimname='latitude',
+    lon_dimname='longitude',
+    time_dimname='month',
+    sum_time=True,
+    integer_multiplier=10 ** 5)
+
+for path in lyrslist_qtot_globwb_nosum:
+    flowacc_efnc(
+        in_ncpath=path,
+        in_template_extentlyr=pxarea_grid,
+        in_template_resamplelyr=pxarea_grid,
+        pxarea_grid=pxarea_grid,
+        flowdir_grid=flowdir_grid,
+        out_resdir=globwb_resdir,
+        out_resgdb=globwb_qtotacc15s_gdb,
+        scratchgdb=scratchgdb,
+        lat_dimname='latitude',
+        lon_dimname='longitude',
+        time_dimname='month',
+        sum_time=False,
+        integer_multiplier=10 ** 5)
 
 #-------------------------------------------------- PROCESS ISIMP2B-----------------------------------------------------
 # Create a searchable dataframe of monthly and annual statistics and global EF computations for isimp2b runoff
@@ -139,7 +183,7 @@ lyrsdf_qtot_isimp2b.apply(lambda row:
                               pxarea_grid=pxarea_grid,
                               flowdir_grid=flowdir_grid,
                               out_resdir = isimp2b_resdir,
-                              out_resgdb = qtotacc15s_gdb,
+                              out_resgdb = isimp_qtotacc15s_gdb,
                               scratchgdb = scratchgdb,
                               lat_dimname = 'lat',
                               lon_dimname = 'lon',
@@ -148,9 +192,6 @@ lyrsdf_qtot_isimp2b.apply(lambda row:
                               integer_multiplier = 10**9),
                           axis=1
                           )
-
-#-------------------------------------------------- PROCESS PCR_GLOBWB -------------------------------------------------
-
 
 
 
@@ -165,7 +206,7 @@ lyrsdf_qtot_isimp2b.apply(lambda row:
 # pxarea_grid = pxarea_grid
 # flowdir_grid = flowdir_grid
 # out_resdir = isimp2b_resdir
-# out_resgdb = qtotacc15s_gdb
+# out_resgdb = isimp_qtotacc15s_gdb
 # scratchgdb = scratchgdb
 # lat_dimname = 'lat'
 # lon_dimname = 'lon'
