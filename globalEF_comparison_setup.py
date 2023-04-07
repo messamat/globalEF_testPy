@@ -45,6 +45,9 @@ def getfilelist(dir, repattern=None, gdbf=True, nongdbf=True):
     gdbf and nongdbf allows the user to choose whether to consider ArcGIS workspaces (GDBs) or not or exclusively"""
 
     try:
+        if isinstance(dir, Path):
+            dir = str(dir)
+
         if arcpy.Describe(dir).dataType == 'Workspace':
             if gdbf == True:
                 print('{} is ArcGIS workspace...'.format(dir))
@@ -173,3 +176,18 @@ def hydroresample(in_vardict, out_vardict, in_hydrotemplate, resampling_type='NE
         if not srcomp: print("{0} != {1}".format(maskdesc.SpatialReference.name, templatedesc.SpatialReference.name))
 
     arcpy.ResetEnvironments()
+
+#Use xarray so as not to have to create temporary raster layers iteratively for each netdf
+def extract_xr_by_point(in_xr, in_pointdf, in_df_id,
+                        in_xr_lon_dimname='lon', in_xr_lat_dimname='lat',
+                        in_df_lon_dimname='POINT_X', in_df_lat_dimname='POINT_Y'
+                        ):
+    df_asxr = in_pointdf.set_index(in_df_id).to_xarray()
+
+    isel_dict = {in_xr_lon_dimname: df_asxr[in_df_lon_dimname],
+                 in_xr_lat_dimname: df_asxr[in_df_lat_dimname],}
+    pixel_values = in_xr.sel(isel_dict , method="nearest")
+    pixel_values_df = pixel_values.reset_coords(drop=True). \
+        to_dataframe(). \
+        reset_index()
+    return(pixel_values_df)
