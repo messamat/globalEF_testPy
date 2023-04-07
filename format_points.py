@@ -769,17 +769,20 @@ with arcpy.da.UpdateCursor(EFpoints_0308_clean, ['Point_shift_mathis']) as curso
             cursor.deleteRow()
 
 # Delete duplicates
-arcpy.management.DeleteIdentical(EFpoints_0308_clean, ['no', 'OBJECTID', 'EFUID', 'id_cuenca', 'UID_Mathis', 'basin_name'])
+arcpy.management.DeleteIdentical(EFpoints_0308_clean, ['OBJECTID_1', 'no', 'Id', 'EFUID', 'UID_Mathis',
+                                                       'Country', 'River_Name', 'River_', 'River', 'E-Flow_Loc',
+                                                       'E_flow_Location_Name_No_', 'Point_shift_mathis', 'Comment_mathis',
+                                                       'basin_name', 'id_cuenca'])
 
 # Delete useless fields
-for f1 in arcpy.ListFields(EFpoints_0308_clean):
-    if f1.name not in [
-        arcpy.Describe(EFpoints_0308_clean).OIDFieldName,
-        'OBJECTID_1', 'Shape', 'no', 'Id', 'EFUID', 'UID_Mathis',
-        'Country', 'River_Name', 'River_', 'River', 'E-Flow_Loc',
-        'E_flow_Location_Name_No_', 'Point_shift_mathis', 'Comment_mathis',
-        'basin_name', 'id_cuenca']:
-        arcpy.management.DeleteField(EFpoints_0308_clean, f1.name)
+arcpy.management.DeleteField(EFpoints_0308_clean,
+                             [f.name for f in arcpy.ListFields(EFpoints_0308_clean) if f.name not in
+                              [arcpy.Describe(EFpoints_0308_clean).OIDFieldName,
+                              'OBJECTID_1', 'Shape', 'no', 'Id', 'EFUID', 'UID_Mathis',
+                              'Country', 'River_Name', 'River_', 'River', 'E-Flow_Loc',
+                              'E_flow_Location_Name_No_', 'Point_shift_mathis', 'Comment_mathis',
+                              'basin_name', 'id_cuenca']
+                             ])
 
 # Create new points for those that did not have coordinates
 newpts_1028 = {
