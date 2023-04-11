@@ -23,7 +23,7 @@ EFpoints_20230308_clean_globalEF_tab = os.path.join(resdir, 'EFpoints_20230308_c
 lyrsdf_globalef_isimp2b_dis = pd.DataFrame.from_dict(
     {path: Path(path).stem.split('_') for path in
      getfilelist(dir=isimp2b_globalef_dis_resdir,
-                 repattern=r"((dis_smakhtinef_[abcd])|(dis_allefbutsmakhtin))[.]nc4")
+                 repattern=r"((dis_smakhtinef_[abcd])|(dis_allefbutsmakhtin)|(dis_maf))[.]nc4")
      },
     orient='index',
     columns=['ghm', 'gcm', 'climate_scenario', 'human_scenario',
@@ -37,14 +37,14 @@ lyrsdf_globalef_isimp2b_dis['run'] = lyrsdf_globalef_isimp2b_dis[
     ['ghm', 'gcm', 'climate_scenario', 'human_scenario']].apply(
     lambda row: '_'.join(row.values.astype(str)), axis=1)
 
-# Create a searchable dataframe of layers for isimp2b qot ef
+# Create a searchable dataframe of layers for isimp2b qtot ef
 """It's not possible in this case to simply delimit run components by splitting by underscore because hyphens were
  converted to underscores when processing the layers with arcpy. and some gcm, for instance, have three components.
  Therefore, identify run components thanks to the discharge df"""
 
 lyrsdf_globalef_isimp2b_qtot_root = lyrsdf_globalef_isimp2b_dis[['ghm', 'gcm', 'climate_scenario', 'human_scenario',
                                                                  'res', 'run']]
-lyrsdf_globalef_isimp2b_qtot_root['run_format'] = lyrsdf_globalef_isimp2b_qtot_root['run'].apply(
+lyrsdf_globalef_isimp2b_qtot_root.loc[:, ('run_format')] = lyrsdf_globalef_isimp2b_qtot_root['run'].apply(
     lambda x: re.sub('[-]','_', x))
 lyrsdf_globalef_isimp2b_qtot_path = pd.DataFrame.from_dict(
     {path: re.sub("_qtot.*", '', Path(path).name) for path in
@@ -129,7 +129,7 @@ lyrsdf_globalef = pd.concat([lyrsdf_globalef_isimp2b_dis,
                              lyrsdf_globalef_globwb_dis,
                              lyrsdf_globalef_globwb_qtot])
 
-#----------------------------------------- Extract by point for file geodatabase files - accumulated runoff ------------
+#----------------------------------------- Extract by point for geodatabase files of accumulated runoff ------------
 if not arcpy.Exists(EFpoints_20230308_clean_globalEF):
     arcpy.management.CopyFeatures(EFpoints_0308_clean, EFpoints_20230308_clean_globalEF)
 
@@ -147,9 +147,12 @@ qtotef_extraction_list = list(
 )
 
 #Extract values directly to the points' attribute table
-ExtractMultiValuesToPoints(in_point_features=EFpoints_20230308_clean_globalEF,
-                           in_rasters= qtotef_extraction_list,
-                           bilinear_interpolate_values='NONE')
+efp_existingfields = [f.name for f in arcpy.ListFields(EFpoints_20230308_clean_globalEF)]
+qtotef_extraction_list_todo = [r for r in qtotef_extraction_list if r[1] not in efp_existingfields]
+if len(qtotef_extraction_list_todo) > 0:
+    ExtractMultiValuesToPoints(in_point_features=EFpoints_20230308_clean_globalEF,
+                               in_rasters= qtotef_extraction_list_todo,
+                               bilinear_interpolate_values='NONE')
 
 #Import attribute table to a panda df and melt it
 qtotef_df = pd.melt(
@@ -216,19 +219,20 @@ efpoints_globalef_globwb_dis_seriesofdf = lyrsdf_globalef[(lyrsdf_globalef['var'
     axis=1
 )
 
-#Merge data from isimp2b and high-res GLOBWB and melt them
 
+
+
+#Merge data from isimp2b and high-res GLOBWB and melt them
 disef_df = pd.melt(
     pd.concat(
-        efpoints_globalef_isimp2b_dis_seriesofdf.tolist() +
-        efpoints_globalef_globwb_dis_seriesofdf.tolist()),
+        [pd.concat(efpoints_globalef_globwb_dis_seriesofdf.tolist()),
+        pd.concat(efpoints_globalef_isimp2b_dis_seriesofdf.tolist())]),
     id_vars=[oidfn, 'month', 'merge_efextract_df'],
-    value_vars=['tennant', 'q90q50', 'tessmann', 'vmf', 'taef'],
+    value_vars=['tennant', 'q90q50', 'tessmann', 'vmf', 'taef','dis'],
     var_name='eftype_2'
 )
 disef_df = disef_df[~disef_df['value'].isna()]
-disef_df.groupby(['OBJECTID', 'merge_efextract_df', 'eftype_2']).sum('value')
-disef_df.columns
+disef_df.loc[disef_df['value']=='dis','eftype_2'] = 'maf'
 
 #Join them to unique IDs for reference EF points
 efp_ids = pd.DataFrame(
@@ -257,7 +261,8 @@ disef_df_format = pd.merge(left=disef_df_efp,
                         validate='many_to_one'
                         )
 
-#Merge data from discharge and accumulated runoff calculations
+#----------------------------------------- Format final table  -------------------------------------------
+#Merge data from EF calculations discharge and accumulated runoff
 allef_df_format = pd.concat([disef_df_format,
                             qtotef_df_format])
 allef_df_format = allef_df_format[~(allef_df_format['value'].isna())]
@@ -265,9 +270,20 @@ allef_df_format = allef_df_format[~(allef_df_format['value'].isna())]
 allef_df_format.groupby([c for c in allef_df_format.columns if not c in ['month', 'value']]).sum('value')
 
 #Format
-allef_df_format['eftype_format'] = allef_df_format['eftype_format']
+allef_df_format['eftype_format'] = allef_df_format['eftype_2_x']
+allef_df_format.loc[allef_df_format['eftype_format'].isna(),
+                    'eftype_format'] = allef_df_format[allef_df_format['eftype_format'].isna()]['eftype_2']
+allef_df_format.loc[allef_df_format['eftype'].isin(['maf', 'mmf']), 'eftype_format'] = \
+    allef_df_format.loc[allef_df_format['eftype'].isin(['maf', 'mmf']), 'eftype']
+allef_df_format.loc[allef_df_format['eftype_format'].isna(),
+                    'eftype_format'] = 'taef'
+allef_df_format.loc[allef_df_format['eftype_format'] == 'taef',
+                    'eftype_format'] = allef_df_format.loc[allef_df_format['eftype_format'] == 'taef'].apply(
+    lambda row: f'smakthin_{row["emc"]}', axis=1)
 
+allef_df_format.drop(columns='eftype_2_y', inplace=True)
 
+#Export
 allef_df_format.to_csv(
     EFpoints_20230308_clean_globalEF_tab
 )
