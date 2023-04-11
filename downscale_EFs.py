@@ -1,5 +1,3 @@
-import os
-
 from globalEF_comparison_setup import *
 import EF_utils
 #from utility_functions_py3 import *
@@ -32,8 +30,8 @@ pathcheckcreate(globwb_qtotacc15s_gdb)
 
 def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
                  pxarea_grid, flowdir_grid, out_resdir, out_resgdb, scratchgdb,
-                 integer_multiplier,lat_dimname = 'lat', lon_dimname = 'lon', time_dimname = 'month',
-                 sum_time = True):
+                 lat_dimname = 'lat', lon_dimname = 'lon', time_dimname = 'month',
+                 sum_time = True, integer_multiplier = None, convert_to_int = True):
 
     pred_nc = xr.open_dataset(in_ncpath)
     root_name = re.sub('[-]', '_', in_ncpath.stem)
@@ -61,10 +59,12 @@ def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
             pred_nc_cropped = pred_nc.loc[cropdict]
 
             if sum_time:
-                (pred_nc_cropped.sum(dim=time_dimname,
-                                     skipna=False) * integer_multiplier).astype(np.intc).to_netcdf(out_croppedintnc)
-            else:
+                pred_nc_cropped = pred_nc_cropped.sum(dim=time_dimname, skipna=False)
+            if convert_to_int:
                 (pred_nc_cropped * integer_multiplier).astype(np.intc).to_netcdf(out_croppedintnc)
+            else:
+                pred_nc_cropped.to_netcdf(out_croppedintnc)
+
     else:
         out_croppedintnc = in_ncpath
 
@@ -90,7 +90,6 @@ def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
             # Set environment
             arcpy.env.extent = arcpy.env.snapRaster = in_template_resamplelyr
 
-
             # Run weighting
             out_rsmpbi = os.path.join(scratchgdb, f"{root_name}_{in_var}_rsmpbi")
             out_grid = os.path.join(out_resgdb, f"{root_name}_{in_var}_acc15s")
@@ -105,56 +104,48 @@ def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
 
             if not arcpy.Exists(out_grid):
                 print(f"Running flow accumulation for {root_name}, {in_var}")
-                # Multiply input grid by pixel area
+                # Multiply input grid by pixel area (save intermediate because keeps crashing
                 start = time.time()
-                valueXarea = Times(Raster(out_rsmpbi), Raster(pxarea_grid))
+                Times(Raster(out_rsmpbi), Raster(pxarea_grid)).save(os.path.join(scratchgdb, 'valueXarea'))
                 outflowacc = FlowAccumulation(in_flow_direction_raster=flowdir_grid,
-                                              in_weight_raster=Raster(valueXarea),
-                                              data_type="FLOAT")
-                outflowacc_m3s = Int(Divide(outflowacc, 10**3)+0.5)
-                outflowacc_m3s.save(out_grid)
+                                              in_weight_raster=Raster(os.path.join(scratchgdb, 'valueXarea')),
+                                              data_type="DOUBLE")
+                if convert_to_int:
+                    outflowacc_m3s = Divide(outflowacc, float(integer_multiplier))
+                    outflowacc_m3s.save(out_grid)
+                else:
+                    outflowacc.save(out_grid)
                 end = time.time()
                 print(end - start)
 
 #-------------------------------------------------- PROCESS PCR_GLOBWB -------------------------------------------------
 lyrslist_qtot_globwb_nosum = [Path(globwb_resdir, bname) for bname in
-                              ["runoff_monthTot_output_1958-01-31_to_2015-12-31_maf.nc4",
+                              ["runoff_monthTot_output_1958-01-31_to_2015-12-31_allefbutsmakhtin.nc4",
+                               "runoff_monthTot_output_1958-01-31_to_2015-12-31_maf.nc4",
                                "runoff_monthTot_output_1958-01-31_to_2015-12-31_mmf.nc4"] + \
                               [f"PCR_GLOBWB_runoff_smakthinef_{letter}.nc4" for letter in ['a', 'b', 'c', 'd']]
                               ]
 
 
 #######TOTAL OVER THE YEAR
-flowacc_efnc(
-    in_ncpath=Path(globwb_resdir, "runoff_monthTot_output_1958-01-31_to_2015-12-31_allefbutsmakhtin.nc4"),
-    in_template_extentlyr=pxarea_grid,
-    in_template_resamplelyr=pxarea_grid,
-    pxarea_grid=pxarea_grid,
-    flowdir_grid=flowdir_grid,
-    out_resdir=globwb_resdir,
-    out_resgdb=globwb_qtotacc15s_gdb,
-    scratchgdb=scratchgdb,
-    lat_dimname='latitude',
-    lon_dimname='longitude',
-    time_dimname='month',
-    sum_time=True,
-    integer_multiplier=10 ** 5)
-
 for path in lyrslist_qtot_globwb_nosum:
-    flowacc_efnc(
-        in_ncpath=path,
-        in_template_extentlyr=pxarea_grid,
-        in_template_resamplelyr=pxarea_grid,
-        pxarea_grid=pxarea_grid,
-        flowdir_grid=flowdir_grid,
-        out_resdir=globwb_resdir,
-        out_resgdb=globwb_qtotacc15s_gdb,
-        scratchgdb=scratchgdb,
-        lat_dimname='latitude',
-        lon_dimname='longitude',
-        time_dimname='month',
-        sum_time=False,
-        integer_multiplier=10 ** 5)
+    if path.exists():
+        flowacc_efnc(
+            in_ncpath=path,
+            in_template_extentlyr=pxarea_grid,
+            in_template_resamplelyr=pxarea_grid,
+            pxarea_grid=pxarea_grid,
+            flowdir_grid=flowdir_grid,
+            out_resdir=globwb_resdir,
+            out_resgdb=globwb_qtotacc15s_gdb,
+            scratchgdb=scratchgdb,
+            lat_dimname='latitude',
+            lon_dimname='longitude',
+            time_dimname='month',
+            sum_time=False,
+            convert_to_int = False)
+    else:
+        Warning(f'{path} file not found')
 
 #-------------------------------------------------- PROCESS ISIMP2B-----------------------------------------------------
 # Create a searchable dataframe of monthly and annual statistics and global EF computations for isimp2b runoff
@@ -189,27 +180,7 @@ lyrsdf_qtot_isimp2b.apply(lambda row:
                               lon_dimname = 'lon',
                               time_dimname = 'month',
                               sum_time = row['sum_time'],
+                              convert_to_int = True,
                               integer_multiplier = 10**9),
                           axis=1
                           )
-
-
-
-
-
-#h08_hadgem2_es_picontrol_1860soc_qtot_allefbutsmakhtin_croppedint.nc
-#in_ncpath = Path('D:/IWMI_GEFIStest/results/isimp2b/h08_hadgem2-es_picontrol_1860soc_dis_allefbutsmakhtin.nc4')
-# row  =lyrsdf_qtot.iloc[7,:]
-# in_ncpath = row['path']
-# in_template_extentlyr = pxarea_grid
-# in_template_resamplelyr = pxarea_grid
-# pxarea_grid = pxarea_grid
-# flowdir_grid = flowdir_grid
-# out_resdir = isimp2b_resdir
-# out_resgdb = isimp_qtotacc15s_gdb
-# scratchgdb = scratchgdb
-# lat_dimname = 'lat'
-# lon_dimname = 'lon'
-# time_dimname = 'month'
-# sum_time = row['sum_time']
-# integer_multiplier = 10 ** 9
