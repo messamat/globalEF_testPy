@@ -13,7 +13,6 @@ if not globwb_resdir.exists():
 discharge_path = Path(globwb_datdir, 'discharge_monthAvg_output_1958-01-31_to_2015-12-31.zip.nc')
 runoff_path = Path(globwb_datdir, 'runoff_monthTot_output_1958-01-31_to_2015-12-31.zip.nc')
 
-
 def split_netcdf(in_netcdf, factor,  out_pathroot, lat_dimname='latitude', lon_dimname='longitude'):
     if isinstance(in_netcdf, (str, Path)):
         in_netcdf = xr.open_dataset(in_netcdf)
@@ -52,10 +51,10 @@ def split_netcdf(in_netcdf, factor,  out_pathroot, lat_dimname='latitude', lon_d
                 ]
 
 
-def preprocess_GLOBWB(in_path, in_var, out_resdir):
-    outpath_ef_notsmakhtin = Path(out_resdir, f'{in_path.name.split(".")[0]}_allefbutsmakhtin.nc4')
-    outpath_mmf = Path(out_resdir, f'{in_path.name.split(".")[0]}_mmf.nc4')
-    outpath_maf = Path(out_resdir, f'{in_path.name.split(".")[0]}_maf.nc4')
+def preprocess_GLOBWB(in_path, in_var, out_resdir, compute_allefbutsmakhtin=True, compute_smakhtinef=True):
+    outpath_ef_notsmakhtin = Path(out_resdir, f'PCR_GLOBWB_{in_var}_allefbutsmakhtin.nc4')
+    outpath_mmf = Path(out_resdir, f'PCR_GLOBWB_{in_var}_mmf.nc4')
+    outpath_maf = Path(out_resdir, f'PCR_GLOBWB_{in_var}_maf.nc4')
 
     # dis_xr = spatiotemporal_chunk_optimized_acrosstime(
     #     xr.open_dataset(in_path),
@@ -67,69 +66,75 @@ def preprocess_GLOBWB(in_path, in_var, out_resdir):
     dis_xr = dis_xr.assign_coords(month=("time",
                                          dis_xr.time.dt.strftime("%m").data))
 
-    if not outpath_ef_notsmakhtin.exists():
-        print(f"Processing {outpath_ef_notsmakhtin.name}")
-        compute_monthlyef_notsmakhtin(in_xr = dis_xr,
-                                      out_efnc=outpath_ef_notsmakhtin ,
-                                      vname = in_var,
-                                      lat_dimname='latitude',
-                                      lon_dimname='longitude',
-                                      time_dimname='time',
-                                      remove_outliers=True,
-                                      out_mmf=outpath_mmf,
-                                      out_maf=outpath_maf)
-    else:
-        print(f"{outpath_ef_notsmakhtin.name} already exists. Skipping...")
+    if compute_allefbutsmakhtin:
+        if not outpath_ef_notsmakhtin.exists():
+            print(f"Processing {outpath_ef_notsmakhtin.name}")
+            compute_monthlyef_notsmakhtin(in_xr = dis_xr,
+                                          out_efnc=outpath_ef_notsmakhtin,
+                                          vname = in_var,
+                                          lat_dimname='latitude',
+                                          lon_dimname='longitude',
+                                          time_dimname='time',
+                                          remove_outliers=True,
+                                          out_mmf=outpath_mmf,
+                                          out_maf=outpath_maf)
+        else:
+            print(f"{outpath_ef_notsmakhtin.name} already exists. Skipping...")
 
-    #Divide the raster in four tiles to be processed separately
-    dis_xr_tilelist = split_netcdf(in_netcdf=dis_xr,
-                                   factor=10,
-                                   out_pathroot=Path(out_resdir, os.path.splitext(os.path.splitext(in_path.name)[0])[0]),
-                                   lat_dimname='latitude',
-                                   lon_dimname='longitude')
+    if compute_smakhtinef:
+        #Divide the raster in tiles to be processed separately
+        dis_xr_tilelist = split_netcdf(in_netcdf=dis_xr,
+                                       factor=5,
+                                       out_pathroot=Path(out_resdir, os.path.splitext(os.path.splitext(in_path.name)[0])[0]),
+                                       lat_dimname='latitude',
+                                       lon_dimname='longitude')
 
-    #For each tile
-    for tile_path in dis_xr_tilelist:
-        #For each EMC
-        for shift, emc in enumerate(['a', 'b', 'c', 'd']):
-            outpath_ef_smakhtin = f'{tile_path.name.split(".")[0]}_smakhtinef_{emc}.nc4'
-            if not Path(out_resdir, outpath_ef_smakhtin).exists():
-                print(f"Processing {outpath_ef_smakhtin}")
+        #For each tile
+        for tile_path in dis_xr_tilelist:
+            #For each EMC
+            for shift, emc in enumerate(['a', 'b', 'c', 'd']):
+                outpath_ef_smakhtin = f'{tile_path.name.split(".")[0]}_smakhtinef_{emc}.nc4'
+                if not Path(out_resdir, outpath_ef_smakhtin).exists():
+                    print(f"Processing {outpath_ef_smakhtin}")
 
-                import time
-                start = time.time()
-                distile_xr = xr.open_dataset(tile_path)
+                    import time
+                    start = time.time()
+                    distile_xr = xr.open_dataset(tile_path)
 
-                compute_smakhtinef_stats(in_xr = distile_xr,
-                                         out_dir = out_resdir,
-                                         vname=in_var,
-                                         out_efnc_basename=outpath_ef_smakhtin,
-                                         n_shift=shift+1,
-                                         lat_dimname='latitude',
-                                         lon_dimname='longitude',
-                                         scratch_file = 'scratch.nc4')
-                end = time.time()
-                print(end-start)
+                    compute_smakhtinef_stats(in_xr = distile_xr,
+                                             out_dir = out_resdir,
+                                             vname=in_var,
+                                             out_efnc_basename=outpath_ef_smakhtin,
+                                             n_shift=shift+1,
+                                             lat_dimname='latitude',
+                                             lon_dimname='longitude',
+                                             scratch_file = 'scratch.nc4')
+                    end = time.time()
+                    print(end-start)
 
-            else:
-                print(f"{outpath_ef_smakhtin} already exists. Skipping...")
+                else:
+                    print(f"{outpath_ef_smakhtin} already exists. Skipping...")
 
 
-    full_outputpaths_list = [Path(globwb_resdir, f'{tile_path.name.split(".")[0]}_smakhtinef_{emc}.nc4'
-                                  ).exists()
-                             for tile_path in dis_xr_tilelist
-                             for emc in ['a', 'b', 'c', 'd']]
-    if all(full_outputpaths_list):
-        return(full_outputpaths_list)
+        full_outputpaths_list = [Path(globwb_resdir, f'{tile_path.name.split(".")[0]}_smakhtinef_{emc}.nc4'
+                                      ).exists()
+                                 for tile_path in dis_xr_tilelist
+                                 for emc in ['a', 'b', 'c', 'd']]
+        if all(full_outputpaths_list):
+            return(full_outputpaths_list)
 
-    #Re-merge the tiles
+
 
 smakthinef_dis_pathlist = preprocess_GLOBWB(in_path=discharge_path,
                                             in_var='discharge',
-                                            out_resdir = globwb_resdir)
+                                            out_resdir = globwb_resdir,
+                                            compute_allefbutsmakhtin=True,
+                                            compute_smakhtinef=True)
 smakthinef_qtot_pathlist = preprocess_GLOBWB(in_path=runoff_path,
                                              in_var='land_surface_runoff',
-                                             out_resdir = globwb_resdir)
+                                             out_resdir = globwb_resdir,
+                                            compute_allefbutsmakhtin=True,
+                                            compute_smakhtinef=True)
 
 
 #Merge
