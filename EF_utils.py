@@ -13,7 +13,7 @@ def spatiotemporal_chunk_optimized_acrosstime(in_xr, lat_dimname='lat', lon_dimn
         lat_dimname: spatial_chunk_size,
         lon_dimname: spatial_chunk_size
     }
-    return(in_xr.chunk(**kwargs))
+    return(in_xr.chunk(chunks=kwargs))
 
 # Resample at monthly scale
 # Some of the simulations have negative values of discharge and/or runoff
