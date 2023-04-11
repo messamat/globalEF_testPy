@@ -233,14 +233,9 @@ def compute_smakhtinef_stats(in_xr, out_dir, out_efnc_basename, n_shift=1, vname
                                       smakhtinef_mean[vname].round(decimals=6)).values, 1)
     #smakhtinef_relative.to_netcdf(Path(out_dir, 'smakthinef_relative.nc4'))
 
-    #Compute total annual e-flow
-    print("Compute total annual e-flow")
-    smakhtinef_taef = smakhtinef.groupby('month').mean(skipna=True).sum(dim='month', skipna=False)
-    #smakhtinef_taef.to_netcdf(Path(out_dir, 'smakhtinef_taef.nc4'))
-
     #Merge and write out
     print("Merge and write-out")
-    xr.Dataset(dict(raef=smakhtinef_relative, taef=smakhtinef_taef)).\
+    xr.Dataset(dict(raef=smakhtinef_relative, maef=smakhtinef_mean.ef_mean)).\
         to_netcdf(Path(out_dir, out_efnc_basename))
 
     del run_fdc_merge_disk
