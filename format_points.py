@@ -1,5 +1,4 @@
 import arcpy.conversion
-
 from globalEF_comparison_setup import *
 from lat_lon_parser import parse
 
@@ -139,6 +138,7 @@ editdict_Rhone = {
     225: [1, "Move to correct tributary, le Caillan"],
     228: [1, "Move to correct tributary, l'Hyère"],
     229: [1, "Move to correct tributary, l'Albanne"],
+    230: [1, "Move slightly downstream along the reach to fall in correct cell"],
     231: [-1, "Not represented in HydroRIVERS"],
     237: [1, "Move to correct tributary, la Meunaz"],
     240: [1, "Move to correct tributary, le Drumettaz"],
@@ -239,6 +239,7 @@ editdict_victoria = {
     50: [1, 'Move to correct tributary, Traralgon River'],
     71: [-1, 'Tributary is not represented in HydroRIVERS'],
     73: [-1, 'Tributary is not well represented in HydroRIVERS'],
+    74: [-1, 'Tributary is represented in HydroRIVERS'],
     87: [1, 'Move to correct tributary, Tullarrop'],
     90: [-1, 'Bifurcation/Difluence to twelve mile creek is not represented in HydroRIVERS'],
     92: [-1, 'Bifurcation/Difluence to twelve mile creek is not represented in HydroRIVERS'],
@@ -648,11 +649,10 @@ with arcpy.da.UpdateCursor(EFpoints2_joinedit,
         cursor.updateRow(row)
 
 # ---------------------------------- FORMATTING OF SITES FROM OCT 28th 2021 DATABASE FREEZE ----------------------------
-########## FINISH ADAPTING TO PYTHON ####################
 #Formatting of the database from the original format
 db3 = pd.read_excel(EFpoints_1028freeze, sheet_name = 'Data').\
     rename(columns={'Latitude' : 'Latitude_original', 'Longitude' : 'Longitude_original'}) #Standardize "Original" coordinates
-db3_notIWMI = db3.iloc[207:,:].copy()     #remove EFA from the original IWMI database. Treated by Chandima
+db3_notIWMI = db3.iloc[207:,:].copy()     #remove EFAs from the original IWMI database. Treated by Chandima
 
 #Format latitude and longitude
 db3_notIWMI.loc[db3_notIWMI['Latitude_original'].notnull(), 'Latitude_parzer'] = db3_notIWMI.loc[
@@ -717,7 +717,8 @@ editdict = {
     506: [1, 'Moved to mainstem'],
     507: [1, 'Moved to mainstem'],
     508: [1, 'Moved to correct tributary Saint-Louis'],
-    516: [0, 'Not well represented in HydroRIVERS', None],
+    516: [0, 'Not well represented in HydroRIVERS'],
+    528: [0, 'Not well represented in HydroRIVERS'],
     530: [0, 'On same HydroRivers reach as 531'],
     531: [1, 'Moved to correct tributary des Eaux Volées'],
     532: [0, 'On same HydroRivers reach as 531'],
@@ -769,6 +770,14 @@ with arcpy.da.UpdateCursor(EFpoints_0308_clean, ['Point_shift_mathis']) as curso
             cursor.deleteRow()
 
 # Delete duplicates
+#The unique IDs for each sub-database:
+    #EFpoints1_joinedit: no
+    #EFpoints2_joinedit: OBJECTID
+    #Master_20211104_parzered_notIWMI_joinedit: EFUID
+    #EFpoints_Mexico_clean: id_cuenca
+    #Rhone_EFpoints_clean: UID_Mathis
+    #EFpoints_Victoria_emcedit_attri: UID_Mathis
+    #brazil_basins_pourpoints: grid_code, basin_name
 arcpy.management.DeleteIdentical(EFpoints_0308_clean, ['OBJECTID_1', 'no', 'Id', 'EFUID', 'UID_Mathis',
                                                        'Country', 'River_Name', 'River_', 'River', 'E-Flow_Loc',
                                                        'E_flow_Location_Name_No_', 'Point_shift_mathis', 'Comment_mathis',
