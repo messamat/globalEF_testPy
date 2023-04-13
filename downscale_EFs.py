@@ -113,7 +113,7 @@ def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
                     Times(Raster(out_rsmpbi), Raster(pxarea_grid)).save(os.path.join(scratchgdb, 'valueXarea'))
                     outflowacc = FlowAccumulation(in_flow_direction_raster=flowdir_grid,
                                                   in_weight_raster=Raster(os.path.join(scratchgdb, 'valueXarea')),
-                                                  data_type="DOUBLE")
+                                                  data_type="FLOAT")
                     if convert_to_int:
                         outflowacc_m3s = Int(Divide(outflowacc, 10**3)+0.5)
                         outflowacc_m3s.save(out_grid)
@@ -125,6 +125,9 @@ def flowacc_efnc(in_ncpath, in_template_extentlyr, in_template_resamplelyr,
         print(f"All output accumulation layers exist for {root_name}. skipping...")
 
 #-------------------------------------------------- PROCESS PCR_GLOBWB -------------------------------------------------
+#These crash with Process exit on some computers for no apparent reason. If so, can run workflow line by line, which oddly works
+arcpy.env.parallelProcessingFactor = "90%"
+
 flowacc_efnc(
     in_ncpath=Path(globwb_resdir, "PCR_GLOBWB_runoff_allefbutsmakhtin.nc4"),
     in_template_extentlyr=pxarea_grid,
@@ -143,8 +146,7 @@ flowacc_efnc(
 
 #######TOTAL OVER THE YEAR
 lyrslist_qtot_globwb_nosum = [Path(globwb_resdir, bname) for bname in
-                              ["PCR_GLOBWB_runoff_maf.nc4",
-                               "PCR_GLOBWB_runoff_mmf.nc4"] + \
+                              ["PCR_GLOBWB_runoff_maf.nc4"] + \
                               [f"PCR_GLOBWB_runoff_smakthinef_{letter}.nc4" for letter in ['a', 'b', 'c', 'd']]
                               ]
 
@@ -166,3 +168,42 @@ for path in lyrslist_qtot_globwb_nosum:
             convert_to_int=False)
     else:
         Warning(f'{path} file not found')
+
+#-------------------------------------------------- PROCESS ISIMP2B-----------------------------------------------------
+# Create a searchable dataframe of monthly and annual statistics and global EF computations for isimp2b runoff
+lyrsdf_qtot_isimp2b = pd.DataFrame.from_dict(
+    {path: path.stem.split('_') for path in
+     isimp2b_resdir.glob('*[.]nc4') if
+     re.search(r"((smakhtinef_[abcd])|(allefbutsmakhtin)|maf)", str(path))},
+    orient='index',
+    columns=['ghm', 'gcm', 'climate_scenario', 'human_scenario',
+             'var',  'eftype', 'emc']
+). \
+    reset_index(). \
+    rename(columns={'index' : 'path'})
+lyrsdf_qtot_isimp2b = lyrsdf_qtot_isimp2b[lyrsdf_qtot_isimp2b['var']=='qtot'] #Only keep runoff
+
+lyrsdf_qtot_isimp2b['sum_time'] = np.where(
+    lyrsdf_qtot_isimp2b.eftype.isin(['maf', 'smakhtinef']),
+    False,
+    True)
+
+lyrsdf_qtot_isimp2b.apply(lambda row:
+                          flowacc_efnc(
+                              in_ncpath = row['path'],
+                              in_template_extentlyr = pxarea_grid,
+                              in_template_resamplelyr = pxarea_grid,
+                              pxarea_grid=pxarea_grid,
+                              flowdir_grid=flowdir_grid,
+                              out_resdir = isimp2b_resdir,
+                              out_resgdb = isimp_qtotacc15s_gdb,
+                              scratchgdb = scratchgdb,
+                              lat_dimname = 'lat',
+                              lon_dimname = 'lon',
+                              time_dimname = 'month',
+                              aggregate_time = row['sum_time'],
+                              convert_to_int = True,
+                              integer_multiplier = 10**9),
+                          axis=1
+                          )
+
