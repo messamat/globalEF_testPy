@@ -20,6 +20,7 @@ EFpoints_20230308_clean_globalEF_tab = os.path.join(resdir, 'EFpoints_20230308_c
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Create searchable dataframe of all hydrological and ef layers ~~~~~~~~~~~~~~~~~~~~~
 # Create a searchable dataframe of layers for isimp2b dis ef
+print("Create a searchable dataframe of layers for isimp2b dis ef")
 lyrsdf_globalef_isimp2b_dis = pd.DataFrame.from_dict(
     {path: Path(path).stem.split('_') for path in
      getfilelist(dir=isimp2b_globalef_dis_resdir,
@@ -38,6 +39,7 @@ lyrsdf_globalef_isimp2b_dis['run'] = lyrsdf_globalef_isimp2b_dis[
     lambda row: '_'.join(row.values.astype(str)), axis=1)
 
 # Create a searchable dataframe of layers for isimp2b qtot ef
+print("Create a searchable dataframe of layers for isimp2b qtot ef")
 """It's not possible in this case to simply delimit run components by splitting by underscore because hyphens were
  converted to underscores when processing the layers with arcpy. and some gcm, for instance, have three components.
  Therefore, identify run components thanks to the discharge df"""
@@ -49,7 +51,7 @@ lyrsdf_globalef_isimp2b_qtot_root.loc[:, ('run_format')] = lyrsdf_globalef_isimp
 lyrsdf_globalef_isimp2b_qtot_path = pd.DataFrame.from_dict(
     {path: re.sub("_qtot.*", '', Path(path).name) for path in
      getfilelist(dir=isimp2b_globalef_runoff_resdir,
-                 repattern=r"((taef)|(tennant)|(q90q50)|(tessmann)|(vmf)|(qtot))_acc15s")
+                 repattern=r"((maef)|(tennant)|(q90q50)|(tessmann)|(vmf)|(qtot))_acc15s")
      },
     orient='index',
     columns=['run_format']). \
@@ -67,11 +69,12 @@ lyrsdf_globalef_isimp2b_qtot['eftype_2'] = lyrsdf_globalef_isimp2b_qtot.path.str
     pat="(tennant|q90q50|tessmann|vmf)",
     expand=False)
 lyrsdf_globalef_isimp2b_qtot['emc'] = lyrsdf_globalef_isimp2b_qtot.path.str.extract(
-    pat="([abcd](?=_taef))")
+    pat="([abcd](?=_maef))")
 
 lyrsdf_globalef_isimp2b_qtot.drop(columns='run_format', inplace=True)
 
 # Create a searchable dataframe of layers for pcr_globwb high-res dis ef
+print("Create a searchable dataframe of layers for pcr_globwb high-res dis ef")
 lyrsdf_globalef_globwb_dis = pd.DataFrame.from_dict(
     {path: re.sub("PCR_GLOBWB_discharge_", '', Path(path).stem).split('_')
      for path in
@@ -96,11 +99,12 @@ lyrsdf_globalef_globwb_dis['run'] = lyrsdf_globalef_globwb_dis[
 
 
 # Create a searchable dataframe of layers for pcr_globwb high-res qtot ef
+print("Create a searchable dataframe of layers for pcr_globwb high-res qtot ef")
 lyrsdf_globalef_globwb_qtot = pd.DataFrame.from_dict(
     {path: re.sub("PCR_GLOBWB_runoff_", '', Path(path).stem).split('_')[0]
      for path in
      getfilelist(dir=globwb_globalef_runoff_resdir,
-                 repattern=r"((taef)|(tennant)|(q90q50)|(tessmann)|(vmf)|(qtot)|(maf)|(mmf))_acc15s")
+                 repattern=r"((maef)|(tennant)|(q90q50)|(tessmann)|(vmf)|(qtot)|(maf)|(mmf))_acc15s")
      },
     orient='index',
     columns=['eftype']). \
@@ -117,7 +121,7 @@ lyrsdf_globalef_globwb_qtot['eftype_2'] = lyrsdf_globalef_globwb_qtot.path.str.e
     pat="(tennant|q90q50|tessmann|vmf)",
     expand=False).values
 lyrsdf_globalef_globwb_qtot['emc'] = lyrsdf_globalef_globwb_qtot.path.str.extract(
-    pat="([abcd](?=_taef))")
+    pat="([abcd](?=_maef))")
 
 lyrsdf_globalef_globwb_qtot['run'] = lyrsdf_globalef_globwb_qtot[
     ['ghm', 'gcm', 'climate_scenario', 'human_scenario']].apply(
@@ -130,6 +134,7 @@ lyrsdf_globalef = pd.concat([lyrsdf_globalef_isimp2b_dis,
                              lyrsdf_globalef_globwb_qtot])
 
 #----------------------------------------- Extract by point for geodatabase files of accumulated runoff ------------
+print("Extract by point for geodatabase files of accumulated runoff")
 if not arcpy.Exists(EFpoints_20230308_clean_globalEF):
     arcpy.management.CopyFeatures(EFpoints_0308_clean, EFpoints_20230308_clean_globalEF)
 
@@ -179,6 +184,7 @@ qtotef_df_format = pd.merge(left=qtotef_df,
                             )
 
 #----------------------------------------- Extract by point for netcdf files -------------------------------------------
+print("Extract by point for netcdf files")
 #Get unique identifier for the points
 oidfn = arcpy.Describe(EFpoints_20230308_clean_globalEF).OIDFieldName
 
@@ -228,7 +234,7 @@ disef_df = pd.melt(
         [pd.concat(efpoints_globalef_globwb_dis_seriesofdf.tolist()),
         pd.concat(efpoints_globalef_isimp2b_dis_seriesofdf.tolist())]),
     id_vars=[oidfn, 'month', 'merge_efextract_df'],
-    value_vars=['tennant', 'q90q50', 'tessmann', 'vmf', 'taef','dis'],
+    value_vars=['tennant', 'q90q50', 'tessmann', 'vmf', 'maef','dis'],
     var_name='eftype_2'
 )
 disef_df = disef_df[~disef_df['value'].isna()]
@@ -262,6 +268,7 @@ disef_df_format = pd.merge(left=disef_df_efp,
                         )
 
 #----------------------------------------- Format final table  -------------------------------------------
+print("Format final table")
 #Merge data from EF calculations discharge and accumulated runoff
 allef_df_format = pd.concat([disef_df_format,
                             qtotef_df_format])
@@ -276,9 +283,9 @@ allef_df_format.loc[allef_df_format['eftype_format'].isna(),
 allef_df_format.loc[allef_df_format['eftype'].isin(['maf', 'mmf']), 'eftype_format'] = \
     allef_df_format.loc[allef_df_format['eftype'].isin(['maf', 'mmf']), 'eftype']
 allef_df_format.loc[allef_df_format['eftype_format'].isna(),
-                    'eftype_format'] = 'taef'
-allef_df_format.loc[allef_df_format['eftype_format'] == 'taef',
-                    'eftype_format'] = allef_df_format.loc[allef_df_format['eftype_format'] == 'taef'].apply(
+                    'eftype_format'] = 'maef'
+allef_df_format.loc[allef_df_format['eftype_format'] == 'maef',
+                    'eftype_format'] = allef_df_format.loc[allef_df_format['eftype_format'] == 'maef'].apply(
     lambda row: f'smakthin_{row["emc"]}', axis=1)
 
 allef_df_format.drop(columns='eftype_2_y', inplace=True)
@@ -288,11 +295,8 @@ allef_df_format.to_csv(
     EFpoints_20230308_clean_globalEF_tab
 )
 
-#Clean fields up
-
-
+#Delete layer with partial fields
+arcpy.management.Delete(EFpoints_20230308_clean_globalEF)
 
 
 allef_df_format[allef_df_format['OBJECTID']==6].to_csv(Path(resdir,'test6.csv'))
-
-#Make sure to get dis MAR from GHMs
