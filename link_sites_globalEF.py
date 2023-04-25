@@ -6,7 +6,7 @@ from globalEF_comparison_setup import *
 
 #Input variables
 process_gdb = os.path.join(resdir, 'processing_outputs.gdb')
-EFpoints_0308_clean = os.path.join(process_gdb, 'EFpoints_20230308_clean')
+EFpoints_clean = os.path.join(process_gdb, 'EFpoints_20230424_clean')
 
 #Input variables
 isimp2b_globalef_dis_resdir = Path(resdir, 'isimp2b')
@@ -15,8 +15,8 @@ isimp2b_globalef_runoff_resdir = Path(resdir, 'isimp2_qtot_accumulated15s.gdb')
 globwb_globalef_runoff_resdir = Path(resdir, 'globwb_qtot_accumulated15s.gdb')
 
 #Output variables
-EFpoints_20230308_clean_globalEF = os.path.join(process_gdb, 'EFpoints_20230308_clean_globalEF')
-EFpoints_20230308_clean_globalEF_tab = os.path.join(resdir, 'EFpoints_20230308_clean_globalEF.csv')
+EFpoints_clean_globalEF = os.path.join(process_gdb, 'EFpoints_20230424_clean_globalEF')
+EFpoints_clean_globalEF_tab = os.path.join(resdir, 'EFpoints_20230424_clean_globalEF.csv')
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Create searchable dataframe of all hydrological and ef layers ~~~~~~~~~~~~~~~~~~~~~
 # Create a searchable dataframe of layers for isimp2b dis ef
@@ -104,7 +104,7 @@ lyrsdf_globalef_globwb_qtot = pd.DataFrame.from_dict(
     {path: re.sub("PCR_GLOBWB_runoff_", '', Path(path).stem).split('_')[0]
      for path in
      getfilelist(dir=globwb_globalef_runoff_resdir,
-                 repattern=r"((maef)|(tennant)|(q90q50)|(tessmann)|(vmf)|(qtot)|(maf)|(mmf))_acc15s")
+                 repattern=r"((maef)|(tennant)|(q90q50)|(tessmann)|(vmf)|(qtot)|(maf_land_surface_runoff)|(mmf))_acc15s")
      },
     orient='index',
     columns=['eftype']). \
@@ -118,7 +118,7 @@ lyrsdf_globalef_globwb_qtot['human_scenario'] = '1860soc_equivalent'
 lyrsdf_globalef_globwb_qtot['res'] = '0.0833 arc-deg'
 lyrsdf_globalef_globwb_qtot['var'] = 'qtot'
 lyrsdf_globalef_globwb_qtot['eftype_2'] = lyrsdf_globalef_globwb_qtot.path.str.extract(
-    pat="(tennant|q90q50|tessmann|vmf)",
+    pat="(tennant|q90q50|tessmann|vmf|maf)",
     expand=False).values
 lyrsdf_globalef_globwb_qtot['emc'] = lyrsdf_globalef_globwb_qtot.path.str.extract(
     pat="([abcd](?=_maef))")
@@ -135,8 +135,8 @@ lyrsdf_globalef = pd.concat([lyrsdf_globalef_isimp2b_dis,
 
 #----------------------------------------- Extract by point for geodatabase files of accumulated runoff ------------
 print("Extract by point for geodatabase files of accumulated runoff")
-if not arcpy.Exists(EFpoints_20230308_clean_globalEF):
-    arcpy.management.CopyFeatures(EFpoints_0308_clean, EFpoints_20230308_clean_globalEF)
+if not arcpy.Exists(EFpoints_clean_globalEF):
+    arcpy.management.CopyFeatures(EFpoints_clean, EFpoints_clean_globalEF)
 
 #Get unique identifier for each global EF value
 lyrsdf_globalef['merge_efextract_df'] = lyrsdf_globalef.apply(
@@ -152,10 +152,10 @@ qtotef_extraction_list = list(
 )
 
 #Extract values directly to the points' attribute table
-efp_existingfields = [f.name for f in arcpy.ListFields(EFpoints_20230308_clean_globalEF)]
+efp_existingfields = [f.name for f in arcpy.ListFields(EFpoints_clean_globalEF)]
 qtotef_extraction_list_todo = [r for r in qtotef_extraction_list if r[1] not in efp_existingfields]
 if len(qtotef_extraction_list_todo) > 0:
-    ExtractMultiValuesToPoints(in_point_features=EFpoints_20230308_clean_globalEF,
+    ExtractMultiValuesToPoints(in_point_features=EFpoints_clean_globalEF,
                                in_rasters= qtotef_extraction_list_todo,
                                bilinear_interpolate_values='NONE')
 
@@ -163,13 +163,13 @@ if len(qtotef_extraction_list_todo) > 0:
 qtotef_df = pd.melt(
     pd.DataFrame(
         arcpy.da.TableToNumPyArray(
-            EFpoints_20230308_clean_globalEF,
-            field_names=[f.name for f in arcpy.ListFields(EFpoints_20230308_clean_globalEF) if not f.name=='Shape'],
+            EFpoints_clean_globalEF,
+            field_names=[f.name for f in arcpy.ListFields(EFpoints_clean_globalEF) if not f.name=='Shape'],
             skip_nulls=False,
             null_value=-9999
         )
     ),
-    id_vars = [f.name for f in arcpy.ListFields(EFpoints_20230308_clean_globalEF)
+    id_vars = [f.name for f in arcpy.ListFields(EFpoints_clean_globalEF)
                if f.name not in [i[1] for i in qtotef_extraction_list]+['Shape']],
     value_vars= [i[1] for i in qtotef_extraction_list]
 )
@@ -186,12 +186,12 @@ qtotef_df_format = pd.merge(left=qtotef_df,
 #----------------------------------------- Extract by point for netcdf files -------------------------------------------
 print("Extract by point for netcdf files")
 #Get unique identifier for the points
-oidfn = arcpy.Describe(EFpoints_20230308_clean_globalEF).OIDFieldName
+oidfn = arcpy.Describe(EFpoints_clean_globalEF).OIDFieldName
 
 #Make a simple point dataframe from the reference EF points' coordinates
 EFpoints_dict = pd.DataFrame.from_dict(
     {row[0]:(row[1], row[2])
-     for row in arcpy.da.SearchCursor(EFpoints_20230308_clean_globalEF, ['OID@', 'POINT_X', 'POINT_Y'])},
+     for row in arcpy.da.SearchCursor(EFpoints_clean_globalEF, ['OID@', 'POINT_X', 'POINT_Y'])},
     orient='index',
     columns=['POINT_X', 'POINT_Y']). \
     reset_index(). \
@@ -234,17 +234,19 @@ disef_df = pd.melt(
         [pd.concat(efpoints_globalef_globwb_dis_seriesofdf.tolist()),
         pd.concat(efpoints_globalef_isimp2b_dis_seriesofdf.tolist())]),
     id_vars=[oidfn, 'month', 'merge_efextract_df'],
-    value_vars=['tennant', 'q90q50', 'tessmann', 'vmf', 'maef','dis'],
+    value_vars=['tennant', 'q90q50', 'tessmann', 'vmf', 'maef','dis','discharge'],
     var_name='eftype_2'
 )
+
+
 disef_df = disef_df[~disef_df['value'].isna()]
-disef_df.loc[disef_df['value']=='dis','eftype_2'] = 'maf'
+disef_df.loc[disef_df['eftype_2'].isin(['dis', 'discharge']),'eftype_2'] = 'maf'
 
 #Join them to unique IDs for reference EF points
 efp_ids = pd.DataFrame(
     arcpy.da.TableToNumPyArray(
-        EFpoints_20230308_clean_globalEF,
-        field_names=[f.name for f in arcpy.ListFields(EFpoints_20230308_clean_globalEF)
+        EFpoints_clean_globalEF,
+        field_names=[f.name for f in arcpy.ListFields(EFpoints_clean_globalEF)
                      if f.name not in [i[1] for i in qtotef_extraction_list]+['Shape']],
         skip_nulls=False,
         null_value=-9999
@@ -276,6 +278,9 @@ allef_df_format = allef_df_format[~(allef_df_format['value'].isna())]
 
 allef_df_format.groupby([c for c in allef_df_format.columns if not c in ['month', 'value']]).sum('value')
 
+
+allef_df_format.loc[allef_df_format['OBJECTID']==1,:].to_csv('test_.csv')
+
 #Format
 allef_df_format['eftype_format'] = allef_df_format['eftype_2_x']
 allef_df_format.loc[allef_df_format['eftype_format'].isna(),
@@ -292,11 +297,7 @@ allef_df_format.drop(columns='eftype_2_y', inplace=True)
 
 #Export
 allef_df_format.to_csv(
-    EFpoints_20230308_clean_globalEF_tab
+    EFpoints_clean_globalEF_tab
 )
-
-#Delete layer with partial fields
-arcpy.management.Delete(EFpoints_20230308_clean_globalEF)
-
-
-allef_df_format[allef_df_format['OBJECTID']==6].to_csv(Path(resdir,'test6.csv'))
+# #Delete layer with partial fields
+# arcpy.management.Delete(EFpoints_clean_globalEF)
