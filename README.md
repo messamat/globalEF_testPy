@@ -7,37 +7,24 @@ which itself requires a Windows OS. We used the Python Arcpy module associated w
 This repository includes the portions of the analysis conducted in Python, which encompass all spatial formatting of the
 data prior to data analysis. 
 
+#Format hydrological models and EF calculations
+1. download_isimp2b #DONE
+2. preprocess_isimp2b #DONE
+3. preprocess PCR-GLOBWB 2.0 #DONE
+4. downscale_EFs.py #DONE
 
-In Python:
-1. Download isimp2b #DONE
-2. Pre-process isimp2b #Ran it for discharge. Need to run it for runoff now.
-3. Pre-process PCR-GLOBWB 2.0 #DONE
+#Format local EF data
+5. download_localEFdata_france_rhone. #DONE
+6. download_localEFdata_Mexico #DONE
+7. preprocess_localEFdata_france_rhone
+8. format_points.py #DONE
 
-#For Rhone sites
-3. download_france_rhone.R #DONE
-4. manual processing/data extraction #DONE
+#Link everything 
+9. link_sites_globalEF.py #DONE 
+10. link_sites_RiverATLAS.py #DONE
 
-#For Mexico: 
-5. download_format_Mexico.R -> 'mexico_refdata_preformatted.csv' #DONE
-
-6. format_points.py #DONE
-
-7. process_france_rhone.R #DONE
-
-6. downscale_efmodels based on downscale_GEFIS - ########## TO WRITE ######
-
-
-Then execute the following code in R: 
-8. src/GEFIS_testR/postQAQC_merge_dbversions.R TO RE-RUN
-
-9. In master database, add Mexico
-
-
-And continue with the following workflow: TO RE-RUN
-10. link_sites_GEFIS.py TO ADAPT AND RE-RUN
+#To do in the future
 11. link_sites_GRDC.py TO ADAPT AND RE-RUN
-12. link_sites_RiverATLAS.py TO ADAPT AND RE-RUN
-13. quantify_mask.py
 
 Note that substantial manual quality-checking and editing was performed on the location of the e-flow assessment sites, 
 a process that cannot be programatically reproduced.
