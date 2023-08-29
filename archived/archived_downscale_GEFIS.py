@@ -16,18 +16,6 @@ if (len(getfilelist(gefis_dir, repattern='.*[.]tif$'))) == 0:
     arcpy.ExtractPackage_management(in_package=gefis_mpk, output_folder=gefis_dir)
 gefis_raslist = getfilelist(gefis_dir, repattern='.*[.]tif$')
 
-#Check raster characteristics
-rasex = gefis_raslist[0]
-rdesc = arcpy.Describe(rasex)
-print('GEFIS projection: {0}'.format(rdesc.SpatialReference.name))
-print('GEFIS extent: {0}'.format(rdesc.Extent))
-print('HydroSHEDS template extent: {0}'.format(arcpy.Describe(HSras_template).Extent))
-
-#Downsampled
-in_gefisdict = {rasname(ras): ras for ras in gefis_raslist}
-out_gefisdict = {rasname(ras): os.path.join(gefis15s_gdb, rasname(ras)) for ras in gefis_raslist}
-hydroresample(in_vardict = in_gefisdict, out_vardict = out_gefisdict,
-              in_hydrotemplate = HSras_template, resampling_type='NEAREST')
 
 #Get ratio in cell size between MODIS and EarthEnv DEm 90
 cellsize_ratio = arcpy.Describe(rasex).meanCellWidth / arcpy.Describe(HSras_template).meanCellWidth

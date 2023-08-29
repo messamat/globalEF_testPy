@@ -140,11 +140,11 @@ flowacc_efnc(
     lat_dimname='latitude',
     lon_dimname='longitude',
     time_dimname='month',
-    aggregate_time=True,
+    aggregate_time=True, ########Average monthly values
     convert_to_int=False)
 
 
-#######TOTAL OVER THE YEAR
+#######AVERAGE OVER THE YEAR
 lyrslist_qtot_globwb_nosum = [Path(globwb_resdir, bname) for bname in
                               ["PCR_GLOBWB_runoff_maf.nc4"] + \
                               [f"PCR_GLOBWB_runoff_smakthinef_{letter}.nc4" for letter in ['a', 'b', 'c', 'd']]

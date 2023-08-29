@@ -18,6 +18,8 @@ globwb_globalef_runoff_resdir = Path(resdir, 'globwb_qtot_accumulated15s.gdb')
 EFpoints_clean_globalEF = os.path.join(process_gdb, 'EFpoints_20230424_clean_globalEF')
 EFpoints_clean_globalEF_tab = os.path.join(resdir, 'EFpoints_20230424_clean_globalEF.csv')
 
+overwrite=True
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Create searchable dataframe of all hydrological and ef layers ~~~~~~~~~~~~~~~~~~~~~
 # Create a searchable dataframe of layers for isimp2b dis ef
 print("Create a searchable dataframe of layers for isimp2b dis ef")
@@ -135,7 +137,7 @@ lyrsdf_globalef = pd.concat([lyrsdf_globalef_isimp2b_dis,
 
 #----------------------------------------- Extract by point for geodatabase files of accumulated runoff ------------
 print("Extract by point for geodatabase files of accumulated runoff")
-if not arcpy.Exists(EFpoints_clean_globalEF):
+if not arcpy.Exists(EFpoints_clean_globalEF) or (overwrite==True):
     arcpy.management.CopyFeatures(EFpoints_clean, EFpoints_clean_globalEF)
 
 #Get unique identifier for each global EF value
