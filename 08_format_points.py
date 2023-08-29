@@ -31,7 +31,7 @@ EFpoints_Rhone_raw = os.path.join(EFgdb_Rhone, 'Rhone_EFpoints_reportsraw')
 
 #Input data - General
 wgs84_epsg = 4326
-hydroriv = os.path.join(datdir, 'HydroRIVERS_v10.gdb', 'HydroRIVERS_v10') #Download from https://www.hydrosheds.org/page/hydrorivers
+hydroriv = os.path.join(datdir, 'HydroRIVERS_v10.gdb', 'HydroRIVERS_v10')
 up_area = os.path.join(datdir, 'upstream_area_skm_15s.gdb', 'up_area_skm_15s')
 
 #Outputs - 2021 Master database
