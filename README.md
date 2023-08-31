@@ -3,23 +3,7 @@
 This repository contains python code associated with _Messager, M. L., Dickens, W. S. C., Eriyagama, N., Tharme, R. E., Stassen, R. (In review). Global and local estimates of environmental flow requirements to sustain river ecosystems are poorly correlated. [to be updated]_
 
 ## Abstract
-Environmental flows (e-flows) are a central element of sustainable water resource management to mitigate the impacts of 
-hydrological alteration on freshwater ecosystems and their benefits to people. Many nations protect e-flows, and thousands
-of e-flow assessments have been conducted globally, leveraging local data and knowledge to quantify how much water must be
-kept instream for sustaining healthy ecosystems. However, e-flow assessments and implementation are geographically uneven 
-and cover a small fraction of rivers worldwide, which hinders globally consistent target-setting, monitoring and evaluation 
-for international agreements to curb water scarcity and biodiversity loss like the UN Sustainable Development Goals. Therefore, 
-global models have been developed to estimate the e-flow requirements of global rivers seamlessly across basins and administrative 
-boundaries. But there has been little effort to benchmark these models against locally derived e-flow estimates, which may 
-limit confidence in the relevance of global targets. The aim of this study was thus to assess whether current global methods 
-reflect e-flow estimates used on the ground by comparing global and local estimates for 1194 sites across 25 countries. 
-While global approaches can broadly approximate the bulk amount of water that should be precautionarily set aside to 
-sustain aquatic ecosystems at the scale of large basins or countries, they explain a negligible 0-1% of the variability 
-in locally derived estimates of the percentage of river flow that must be protected at a given site. Such a disconnect
-between global and local assessments of e-flow requirements limits the credibility of current global e-flow estimates and 
-associated targets for human and ecosystem water use. To accelerate the global implementation of e-flows requires a concerted
-effort to compile and draw from the thousands of local e-flow assessments that have been conducted worldwide to bridge the 
-gap from local to global scales.
+Environmental flows (e-flows) are a central element of sustainable water resource management to mitigate the detrimental impacts of hydrological alteration on freshwater ecosystems and their benefits to people. Many nations strive to protect e-flows through policy, and thousands of local-scale e-flows assessments have been conducted globally, leveraging data and knowledge to quantify how much water must be provided to river ecosystems, and when, to keep them healthy. However, e-flows assessments and implementation are geographically uneven and cover a small fraction of rivers worldwide. This hinders globally consistent target-setting, monitoring and evaluation for international agreements to curb water scarcity and biodiversity loss. Therefore, models have been developed to estimate the e-flows requirements of rivers seamlessly across basins and administrative boundaries at a global scale. There has been little effort, however, to benchmark these models against locally derived e-flows estimates, which may limit confidence in the relevance of global estimates. The aim of this study was to assess whether current global methods reflect e-flows estimates used on the ground, by comparing global and local estimates for 1194 sites across 25 countries. We found that while global approaches broadly approximate the bulk volume of water that should be precautionarily provided to sustain aquatic ecosystems at the scale of large basins or countries, they explain a remarkably negligible 0-1% of the variability in locally derived estimates of the percentage of river flow that must be protected at a given site. Such a disconnect between global and local assessments of e-flows requirements limits the credibility of global estimates and associated targets for water use. To accelerate the global implementation of e-flows requires further concerted effort to compile and draw from the thousands of existing local e-flows assessments worldwide for developing a new generation of global models and bridging the gap from local to global scales.
 
 ## Introduction
 
